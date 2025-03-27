@@ -1,10 +1,10 @@
 from fastapi import FastAPI
-from .routers import example_router  # Import your routers here
+from app.routers import router  # Import the main router from the routers package
 
 app = FastAPI()
 
 # Include routers
-app.include_router(example_router)  # Replace with your actual router names
+app.include_router(router)  # Use the main router from routers/__init__.py which has all sub-routers included
 
 @app.get("/")
 def read_root():

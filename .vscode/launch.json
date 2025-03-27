@@ -3,29 +3,34 @@
     "configurations": [
         {
             "name": "Backend",
-            "type": "python",
+            "type": "node",
             "request": "launch",
-            "module": "uvicorn",
-            "args": [
-                "app.main:app",
-                "--host",
-                "0.0.0.0",
-                "--port",
-                "8000",
-                "--reload"
+            "preLaunchTask": "Start Backend Server",
+            "runtimeExecutable": "node",
+            "runtimeArgs": [
+                "--no-warnings"
             ],
-            "jinja": true,
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/backend"
-            },
-            "console": "integratedTerminal"
+            "outFiles": [],
+            "skipFiles": [],
+            "console": "integratedTerminal",
+            "presentation": {
+                "hidden": false,
+                "group": "servers",
+                "order": 1
+            }
         },
         {
             "name": "Client",
             "type": "chrome",
             "request": "launch",
-            "url": "http://localhost:3000",
-            "webRoot": "${workspaceFolder}/client/src"
+            "url": "http://localhost:5173",
+            "webRoot": "${workspaceFolder}/client/src",
+            "preLaunchTask": "Start Vite Dev Server",
+            "presentation": {
+                "hidden": false,
+                "group": "servers",
+                "order": 2
+            }
         }
     ],
     "compounds": [

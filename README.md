@@ -1,173 +1,193 @@
 # My Boilerplate App
 
-This project is a boilerplate for building applications using FastAPI for the backend and React for the frontend. It includes essential tools and configurations to get started quickly.
+A full-stack application with a FastAPI backend and React frontend, designed for handling apartment management and customer service through a chatbot interface.
 
 ## Project Structure
 
 ```
-my-boilerplate-app
-├── backend
-│   ├── alembic
-│   │   ├── versions
-│   │   └── env.py
-│   ├── app
-│   │   ├── __init__.py
-│   │   ├── main.py
-│   │   ├── routers
-│   │   │   └── __init__.py
-│   │   ├── models
-│   │   │   └── __init__.py
-│   │   ├── crud
-│   │   │   └── __init__.py
-│   │   ├── db
-│   │   │   └── __init__.py
-│   │   └── core
-│   │       ├── __init__.py
-│   │       └── config.py
-│   ├── alembic.ini
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── .env.example # Note: This is now deprecated, use root .env.example
-├── client
-│   ├── public
-│   │   └── index.html
-│   ├── src
-│   │   ├── App.js
-│   │   ├── index.js
-│   │   └── components
-│   │       └── ui
-│   ├── package.json
-│   ├── tailwind.config.js
-│   ├── postcss.config.js
-│   └── Dockerfile
-├── .vscode
-│   └── launch.json
-├── .env
-├── .env.example # Use this for environment variable setup
-├── .gitignore # Project-wide git ignore file
-├── docker-compose.yml
-├── justfile
-└── README.md
+.
+├── backend/                # FastAPI application
+│   ├── app/                # Main application code
+│   │   ├── core/           # Configuration and settings
+│   │   ├── crud/           # Database operations
+│   │   ├── db/             # Database connections
+│   │   ├── models/         # SQL Alchemy models
+│   │   └── routers/        # API endpoints
+│   ├── alembic/            # Database migrations
+│   └── Dockerfile          # Backend container setup
+├── client/                 # React frontend
+│   ├── public/             # Static assets
+│   ├── src/                # React application code
+│   │   └── components/     # UI components (including shadcn/ui)
+│   └── Dockerfile          # Frontend container setup
+└── docker-compose.yml      # Multi-container setup
 ```
 
-## Backend
+## Features
 
-The backend is built using FastAPI and includes:
+- **FastAPI Backend**: Modern Python web framework for building APIs
+- **React Frontend**: UI built with React
+- **PostgreSQL Database**: Persistent data storage
+- **Containerized**: Docker setup for consistent development and deployment
+- **Shadcn/UI Components**: Modern UI components for the frontend
+- **TailwindCSS**: Utility-first CSS framework
 
-- **Alembic** for database migrations.
-- **Pydantic** for data validation.
-- **PostgreSQL** as the database.
-- General logging capabilities.
-- Environment variables management through a root `.env` file.
+## API Objects
 
-### Requirements
+### Request Object
 
-To install the backend dependencies, run:
+```json
+{
+  "session_id": "12345abcde",
+  "user_id": "tenant123",
+  "booking_number": "BK78901",
+  "conversation_history": [
+    {
+      "role": "user",
+      "message": "I'd like to extend my stay for 3 more days",
+      "timestamp": "2023-11-15T14:30:00Z"
+    },
+    {
+      "role": "assistant",
+      "message": "I'd be happy to help you with that. Let me check the availability.",
+      "timestamp": "2023-11-15T14:30:15Z"
+    }
+  ],
+  "apartment_information": {
+    "apartment_id": "APT456",
+    "location": {
+      "address": "123 Beach Avenue",
+      "city": "Tel Aviv",
+      "country": "Israel"
+    },
+    "wifi_details": {
+      "network_name": "Sweetinn_Guest",
+      "password": "welcomeguest2023"
+    },
+    "available_services": [
+      {
+        "service_type": "car_service",
+        "description": "Car rental with delivery to apartment",
+        "contact": "+972123456789"
+      },
+      {
+        "service_type": "food_delivery",
+        "description": "Local restaurant partnerships with discount"
+      }
+    ]
+  }
+}
+```
+
+### Response Object
+
+```json
+{
+  "session_id": "12345abcde",
+  "response_type": "answer",
+  "message": "I've checked and your apartment is available for a 3-day extension. The total cost for the additional days would be $450. Would you like me to book this extension for you?",
+  "confidence_score": 0.92,
+  "intent_detected": "extend_stay"
+}
+```
+
+### Information Request Object
+
+```json
+{
+  "session_id": "12345abcde",
+  "response_type": "request_info",
+  "required_information": {
+    "type": "availability_check",
+    "parameters": {
+      "apartment_id": "APT456",
+      "check_in_date": "2023-11-20",
+      "check_out_date": "2023-11-23"
+    }
+  },
+  "user_message": "I need to check if we can extend your stay. What dates were you considering?"
+}
+```
+
+## System Flow
+
+1. **Request Flow**:
+   - The backend sends an API request with user query and context
+   - Requests include booking information, conversation history, and apartment details
+
+2. **Processing Flow**:
+   - The Bot Service processes requests through:
+     - Intent Recognition: Determines what the user wants
+     - Reasoning Engine: Analyzes the request against available knowledge
+     - Response Generation: Creates appropriate responses
+
+3. **Storage Components**:
+   - AWS OpenSearch: Stores vector embeddings for semantic searching
+   - AWS S3: Stores knowledge base documents, FAQs, and policies
+
+4. **Response Flow**:
+   - The bot returns either:
+     - A direct answer to the user's query
+     - A request for additional information needed to fulfill the request
+
+## Getting Started
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Node.js (for local development)
+- Python 3.9+ (for local development)
+
+### Environment Setup
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file with your configuration
+
+### Running with Docker
 
 ```bash
+docker-compose up
+```
+
+### Development Commands
+
+Using the `just` command runner:
+
+```bash
+# Install backend dependencies
 just install
-```
 
-### Running the Backend
+# Run the backend server
+just run-backend
 
-To run the backend application, use:
+# Run the frontend server
+just run-client
 
-```bash
+# Run both servers
 just run
-```
 
-### Database Migrations
+# Generate a new database migration
+just migrate-generate "migration message"
 
-This project uses Alembic to manage database schema migrations. Ensure you have configured your `.env` file with the correct `DATABASE_URL`.
-
-**Generating Migrations:**
-
-After making changes to your SQLAlchemy models (in `backend/app/models/`), generate a new migration script:
-
-```bash
-just migrate-generate message="Your descriptive migration message"
-```
-
-Replace `"Your descriptive migration message"` with a short description of the changes. This will create a new file in `backend/alembic/versions/`.
-
-**Running Migrations:**
-
-To apply the migrations to your database:
-
-```bash
+# Run database migrations
 just migrate-run
 ```
 
-This command applies all pending migrations.
+## VSCode Integration
 
-## Client
+This project includes VSCode configurations for:
+- Debugging the backend and frontend
+- Running both servers simultaneously
+- Code formatting and linting
 
-The client is built using React and includes:
+## Development Container
 
-- **shadcn/ui** for UI components.
-- **Tailwind CSS** for styling.
+A development container is provided with all necessary tools pre-installed. To use it:
 
-### Requirements
-
-To install the client dependencies, navigate to the client directory and run:
-
-```bash
-cd client
-npm install
-```
-
-### Running the Client
-
-To run the client application, navigate to the client directory and use:
-
-```bash
-cd client
-npm start
-```
-
-### Adding UI Components (shadcn/ui)
-
-To add new UI components from shadcn/ui, navigate to the `client` directory and use the `npx shadcn add` command followed by the component names:
-
-```bash
-cd client
-npx shadcn add [component-name] [another-component-name]
-```
-
-For example, to add `table`, `card`, `badge`, and `button` components:
-
-```bash
-npx shadcn add table card badge button input select command
-```
-
-This will add the necessary files to your `client/src/components/ui` directory.
-
-## Docker
-
-This project includes Docker configurations for both the backend and client. To build and run the containers, use:
-
-```bash
-docker-compose up --build
-```
-
-## Environment Variables
-
-Make sure to create a `.env` file in the **root directory** of the project. You can copy the `.env.example` file located in the root directory to get started:
-
-```bash
-cp .env.example .env
-```
-
-Edit the `.env` file to include all necessary environment variables. The `DATABASE_URL` is constructed from `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DB_HOST`, and `DB_PORT`. Ensure these are set correctly for your environment (Docker or local development). Alembic and the FastAPI application are configured to read variables from this root `.env` file.
-
-## Git Ignore
-
-A `.gitignore` file is included in the root directory to exclude common temporary files, environment files, and build artifacts from version control.
-
-## VS Code Configuration
-
-The project includes a `.vscode` directory with a launch configuration (`launch.json`) to potentially run and debug components.
-
-## License
-
-This project is licensed under the MIT License.
+1. Install the [Remote - Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
+2. Open the project in VSCode
+3. Click on the green button in the lower left corner and select "Reopen in Container"

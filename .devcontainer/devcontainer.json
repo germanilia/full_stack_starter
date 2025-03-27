@@ -27,12 +27,13 @@
 	},
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	"forwardPorts": [
-		8000,
-		3000
+		9000,
+		3000,
+		5173
 	],
-	// Enable networking that allows host.docker.internal to work
+	// Configure networking for proper port forwarding
 	"runArgs": [
-		"--network=host"
+		"--add-host=host.docker.internal:host-gateway"
 	],
 	"mounts": [
         "source=${localEnv:HOME}/.ssh/germanilia,target=/tmp/host-germanilia-key,type=bind,consistency=cached",
@@ -45,10 +46,10 @@
 		"vscode": {
 			"settings": {
 				"terminal.integrated.defaultProfile.linux": "bash",
-				"python.defaultInterpreterPath": "/usr/local/bin/python"
+				"python.defaultInterpreterPath": "/usr/local/python/current/bin/python"
 			},
 			"extensions": [
-				"ms-azuretools.vscode-docker",
+				"github.copilot-chat",
 				"ms-python.black-formatter",
 				"ms-azuretools.vscode-docker",
 				"dbaeumer.vscode-eslint",
@@ -70,11 +71,12 @@
 				"mechatroner.rainbow-csv",
 				"bradlc.vscode-tailwindcss",
 				"rangav.vscode-thunder-client",
-				"redhat.vscode-xml",
 				"redhat.vscode-yaml",
+				"redhat.vscode-xml"
 			]
 		}
 	},
+	// Uncomment the next line to run commands as a non-root user. On Linux, you may need to add yourself to the docker group.
 	"remoteUser": "root"
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 }

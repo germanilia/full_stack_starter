@@ -1,10 +1,11 @@
 # Install backend dependencies
 install:
     cd backend && pip install -r requirements.txt
+    cd client && npm install
 
 # Run the backend server
 run-backend:
-    cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    cd backend && uvicorn app.main:app --host 0.0.0.0 --port 9000 --reload
 
 # Generate a new Alembic migration script
 migrate-generate message='':
