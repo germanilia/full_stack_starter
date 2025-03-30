@@ -1,0 +1,6 @@
+fastapi
+alembic
+pydantic
+asyncpg
+python-dotenv
+loguru
