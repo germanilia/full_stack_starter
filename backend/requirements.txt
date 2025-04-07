@@ -1,6 +1,8 @@
 fastapi
 alembic
 pydantic
+pydantic-settings
 asyncpg
 python-dotenv
 loguru
+pyyaml

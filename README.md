@@ -140,12 +140,41 @@ A full-stack application with a FastAPI backend and React frontend, designed for
 
 ### Environment Setup
 
-1. Copy the example environment file:
+1. Copy the secrets file and frontend environment files:
    ```bash
-   cp .env.example .env
+   # Backend secrets (contains sensitive information)
+   cp backend/secrets.example.yaml backend/secrets.yaml
+
+   # Frontend configuration (contains non-sensitive information)
+   cp client/.env.development.example client/.env.development
+   cp client/.env.production.example client/.env.production
    ```
 
-2. Edit the `.env` file with your configuration
+   Note: Backend environment files (.env.development, .env.production, .env.testing) are included in source control and don't need to be copied.
+
+2. Edit the environment files and secrets file with your configuration
+
+#### Backend Configuration
+The backend uses two types of configuration files:
+
+1. **Environment-specific files** (non-sensitive configuration):
+   - `.env.development`: Development environment settings
+   - `.env.production`: Production environment settings
+   - `.env.testing`: Testing environment settings
+
+2. **Secrets file** (sensitive information):
+   - `secrets.yaml`: Contains all sensitive information like database credentials, AWS keys, etc.
+   - Structure includes database credentials and AWS access keys
+
+#### Frontend Configuration
+The frontend uses environment-specific files:
+- `.env.development`: Used during development (`npm run dev`)
+- `.env.production`: Used for production builds (`npm run build`)
+
+Key frontend environment variables:
+- `VITE_API_URL`: The URL of the backend API
+
+**Important**: All sensitive information should be stored in the backend's `secrets.yaml` file, not in any `.env` files.
 
 ### Running with Docker
 

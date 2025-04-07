@@ -14,7 +14,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -95,13 +94,20 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/
 ENV/
 env.bak
 venv.bak
+
+# Secret files
+backend/secrets.yaml
+
+# Local environment files
+.env
+client/.env.development
+client/.env.production
 
 # Spyder project settings
 .spyderproject

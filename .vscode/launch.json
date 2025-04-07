@@ -3,15 +3,19 @@
     "configurations": [
         {
             "name": "Backend",
-            "type": "node",
+            "type": "debugpy",
             "request": "launch",
             "preLaunchTask": "Start Backend Server",
-            "runtimeExecutable": "node",
-            "runtimeArgs": [
-                "--no-warnings"
+            "module": "uvicorn",
+            "args": [
+                "app.main:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "9000",
+                "--reload"
             ],
-            "outFiles": [],
-            "skipFiles": [],
+            "cwd": "${workspaceFolder}/backend",
             "console": "integratedTerminal",
             "presentation": {
                 "hidden": false,

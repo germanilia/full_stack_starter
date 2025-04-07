@@ -27,7 +27,7 @@
 	},
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	"forwardPorts": [
-		9000,
+		8000,
 		3000,
 		5173
 	],
@@ -72,7 +72,8 @@
 				"bradlc.vscode-tailwindcss",
 				"rangav.vscode-thunder-client",
 				"redhat.vscode-yaml",
-				"redhat.vscode-xml"
+				"redhat.vscode-xml",
+				"augment.vscode-augment"
 			]
 		}
 	},

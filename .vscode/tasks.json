@@ -21,7 +21,7 @@
         {
             "label": "Start Backend Server",
             "type": "shell",
-            "command": "cd ${workspaceFolder}/backend && PYTHONPATH=${workspaceFolder}/backend python -m uvicorn app.main:app --host 0.0.0.0 --port 9000 --reload",
+            "command": "cd ${workspaceFolder}/backend && uvicorn app.main:app --host 0.0.0.0 --port 9000 --reload",
             "isBackground": true,
             "problemMatcher": {
                 "owner": "custom",
@@ -30,8 +30,8 @@
                 },
                 "background": {
                     "activeOnStart": true,
-                    "beginsPattern": "INFO:.*Uvicorn running on.*",
-                    "endsPattern": "INFO:.*Application startup complete.*"
+                    "beginsPattern": ".*INFO.*",
+                    "endsPattern": ".*Application startup complete.*"
                 }
             }
         }

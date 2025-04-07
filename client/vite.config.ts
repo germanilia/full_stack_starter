@@ -1,14 +1,19 @@
 import path from "path"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
- 
+import { defineConfig, loadEnv } from "vite"
+
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Load env file based on `mode` in the current directory.
+  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
   plugins: [
     react({
       include: "**/*.{jsx,js,ts,tsx}",
-    }), 
+    }),
     tailwindcss()
   ],
   resolve: {
@@ -22,6 +27,7 @@ export default defineConfig({
     port: 5173, // Vite default port
     strictPort: true,
     hmr: {
+      host: 'localhost',
       clientPort: 5173
     },
     watch: {
@@ -37,4 +43,5 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0'
   }
-})
+  };
+});
