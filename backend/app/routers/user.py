@@ -1,40 +1,26 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import List
+from sqlalchemy.orm import Session
 from app.schemas.user import UserResponse
+from app.crud.user import UserCRUD
+from app.dependencies import get_db
 
 user_router = APIRouter()
 
-# Mock user data (in a real app, this would come from a database)
-MOCK_USERS = [
-    {
-        "id": 1,
-        "username": "johndoe",
-        "email": "john@example.com",
-        "full_name": "John Doe",
-        "is_active": True
-    },
-    {
-        "id": 2,
-        "username": "janedoe",
-        "email": "jane@example.com",
-        "full_name": "Jane Doe",
-        "is_active": True
-    }
-]
-
 @user_router.get("/users/", response_model=List[UserResponse])
-async def read_users():
+async def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """
     Retrieve all users.
     """
-    return MOCK_USERS
+    users = UserCRUD.get_users(db, skip=skip, limit=limit)
+    return users
 
 @user_router.get("/users/{user_id}", response_model=UserResponse)
-async def read_user(user_id: int):
+async def read_user(user_id: int, db: Session = Depends(get_db)):
     """
     Retrieve a specific user by ID.
     """
-    for user in MOCK_USERS:
-        if user["id"] == user_id:
-            return user
-    raise HTTPException(status_code=404, detail="User not found")
+    user = UserCRUD.get_user(db, user_id=user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user

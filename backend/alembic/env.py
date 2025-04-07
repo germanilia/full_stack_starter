@@ -1,4 +1,5 @@
 import os
+import sys
 from logging.config import fileConfig
 from pathlib import Path
 from dotenv import load_dotenv
@@ -7,6 +8,11 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+
+# Add the parent directory to sys.path to allow importing app modules
+backend_dir = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(backend_dir))
+print(f"Added {backend_dir} to Python path")
 
 # Load .env file from the root directory
 env_path = Path('.') / '..' / '.env'
@@ -31,10 +37,12 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-# Use environment variable for database URL
-db_url = os.getenv('DATABASE_URL')
+# Use config service to get database URL from secrets
+from app.core.config_service import config_service
+
+db_url = config_service.get_database_url()
 if not db_url:
-    raise ValueError("DATABASE_URL environment variable not set")
+    raise ValueError("Database URL not found in configuration")
 config.set_main_option('sqlalchemy.url', db_url)
 
 

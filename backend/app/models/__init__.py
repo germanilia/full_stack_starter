@@ -1,5 +1,6 @@
 # backend/app/models/__init__.py
 
-from .your_model import YourModel  # Import your models here
+from app.db import Base
+from .user import User
 
-__all__ = ["YourModel"]  # Export your models for easier access
+__all__ = ["User", "Base"]  # Export your models for easier access

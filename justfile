@@ -3,21 +3,31 @@ install:
     cd backend && pip install -r requirements.txt
     cd client && npm install
 
+# Initialize the database (create it if it doesn't exist)
+init:
+    cd backend && python -m app.db.init_db
+
+# Generate a new Alembic migration with default message
+generate-migration:
+    cd backend && python -m app.db.generate_migration "Auto-generated migration"
+
+# Apply Alembic migrations using config service for database connection
+migrate:
+    cd backend && python -m app.db.run_migrations
+
+# Populate database with sample data
+populate_db:
+    cd backend && python -m app.db.populate_db
+
 # Run the backend server
 run-backend:
     cd backend && uvicorn app.main:app --host 0.0.0.0 --port 9000 --reload
 
-# Generate a new Alembic migration script
-migrate-generate message='':
-    cd backend && alembic revision --autogenerate -m "{{message}}"
-
-# Apply Alembic migrations
-migrate-run:
-    cd backend && alembic upgrade head
-
+# Run the frontend client
 run-client:
     cd client && npm start
 
+# Run both backend and frontend
 run:
     just run-backend & just run-client
 

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from app.routers import router as api_router
 from app.core.config_service import settings
+from app.db.init_db import init_db
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,6 +37,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Initializing database on startup")
+    init_db()
+    logger.info("Database initialized successfully")
 
 # Include routers
 app.include_router(api_router)

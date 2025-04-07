@@ -1,8 +1,12 @@
 fastapi
+uvicorn
 alembic
 pydantic
 pydantic-settings
+sqlalchemy
+psycopg2-binary
 asyncpg
 python-dotenv
 loguru
 pyyaml
+typer
