@@ -34,6 +34,28 @@
                     "endsPattern": ".*Application startup complete.*"
                 }
             }
+        },
+        {
+            "label": "Start Log Monitor",
+            "type": "shell",
+            "command": "${workspaceFolder}/llogs",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "group": "logs"
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*",
+                    "endsPattern": ".*"
+                }
+            }
         }
     ]
 }

@@ -2,10 +2,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Backend",
             "type": "debugpy",
             "request": "launch",
-            "preLaunchTask": "Start Backend Server",
             "module": "uvicorn",
             "args": [
                 "app.main:app",
@@ -40,7 +46,11 @@
     "compounds": [
         {
             "name": "Run Both",
-            "configurations": ["Backend", "Client"]
+            "configurations": [
+                "Backend",
+                "Client"
+            ],
+            "preLaunchTask": "Start Log Monitor"
         }
     ]
 }

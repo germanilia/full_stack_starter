@@ -1,13 +1,26 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import logging
+from contextlib import asynccontextmanager
 from app.routers import router as api_router
 from app.core.config_service import settings
 from app.db.init_db import init_db
+from app.core.logging_service import get_logger
+from app.middlewaremiddleware.logging_middleware import RequestLoggingMiddleware
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Startup logic
+    logger.info("Initializing database on startup")
+    init_db()
+    logger.info("Database initialized successfully", service="database", status="initialized")
+
+    yield
+
+    # Shutdown logic
+    logger.info("Application shutting down")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -27,9 +40,13 @@ app = FastAPI(
         "name": "MIT",
         "url": "https://opensource.org/licenses/MIT",
     },
+    lifespan=lifespan,
 )
 
-# Set up CORS middleware
+# 1. Request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
+
+# 2. CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,  # This is now a property that returns a list
@@ -64,4 +81,11 @@ if __name__ == "__main__":
     host = config_service.get("host", "0.0.0.0")
     port = config_service.get("port", 9000)
 
+    logger.info(
+        "Starting application server",
+        host=host,
+        port=port,
+        environment=config_service._env
+    )
+    
     uvicorn.run(app, host=host, port=port)

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Define colors
+RESET='\033[0m'
+TIME_COLOR='\033[38;5;39m'    # Light blue
+DEBUG_COLOR='\033[38;5;46m'   # Green
+INFO_COLOR='\033[38;5;82m'    # Light green
+WARNING_COLOR='\033[38;5;214m' # Orange
+ERROR_COLOR='\033[38;5;196m'  # Red
+CRITICAL_COLOR='\033[38;5;201m' # Magenta
+FILE_COLOR='\033[38;5;147m'   # Light purple
+LINE_COLOR='\033[38;5;147m'   # Light purple
+MSG_COLOR='\033[38;5;255m'    # White
+
+# Process log file in real-time
+tail -f ./backend/logs/app.log | \
+while read -r line; do
+  # Parse JSON with jq
+  timestamp=$(echo "$line" | jq -r '.record.time.repr')
+  level=$(echo "$line" | jq -r '.record.level.name')
+  filename=$(echo "$line" | jq -r '.record.file.name')
+  line_num=$(echo "$line" | jq -r '.record.line')
+  message=$(echo "$line" | jq -r '.record.message')
+  
+  # Format timestamp to show only up to seconds
+  short_timestamp=$(echo "$timestamp" | cut -d'.' -f1)
+  
+  # Set level color based on log level
+  level_color="$INFO_COLOR"  # Default to INFO color
+  case "$level" in
+    "DEBUG")    level_color="$DEBUG_COLOR" ;;
+    "INFO")     level_color="$INFO_COLOR" ;;
+    "WARNING")  level_color="$WARNING_COLOR" ;;
+    "ERROR")    level_color="$ERROR_COLOR" ;;
+    "CRITICAL") level_color="$CRITICAL_COLOR" ;;
+  esac
+  
+  # Print the formatted log entry with colored level inside brackets
+  printf "${TIME_COLOR}%s${RESET} ${level_color}[%-5s]${RESET} ${FILE_COLOR}%-12s${RESET}:${LINE_COLOR}%-3s${RESET} | ${MSG_COLOR}%s${RESET}\n" \
+    "$short_timestamp" "$level" "$filename" "$line_num" "$message"
+done

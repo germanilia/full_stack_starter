@@ -27,6 +27,7 @@ class ConfigService:
 
         # Load configuration
         self._load_env_file()
+        self._load_env_vars()
         self._load_secrets()
 
     def _load_env_file(self) -> None:
@@ -64,6 +65,16 @@ class ConfigService:
             "cors_origins": os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(","),
             "port": int(os.getenv("PORT", "9000")),
             "host": os.getenv("HOST", "0.0.0.0"),
+
+            # Logging configuration
+            "log_level": os.getenv("LOG_LEVEL", "INFO"),
+            "log_json_format": os.getenv("LOG_JSON_FORMAT", "True").lower() in ("true", "1", "t"),
+            "log_console_output": os.getenv("LOG_CONSOLE_OUTPUT", "True").lower() in ("true", "1", "t"),
+            "log_file_output": os.getenv("LOG_FILE_OUTPUT", "False").lower() in ("true", "1", "t"),
+            "log_file_path": os.getenv("LOG_FILE_PATH", "logs/app.log"),
+            "log_rotation": os.getenv("LOG_ROTATION", "20 MB"),
+            "log_retention": os.getenv("LOG_RETENTION", "1 week"),
+            "log_compression": os.getenv("LOG_COMPRESSION", "zip"),
         }
 
     def _load_secrets(self) -> None:
