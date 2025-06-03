@@ -70,103 +70,7 @@ A full-stack application with a FastAPI backend and React frontend, designed for
 - **Containerized Development**: Docker setup for consistent environments
 - **Development Tools**: Just commands, VSCode integration, devcontainer support
 
-## API Objects
 
-### Request Object
-
-```json
-{
-  "session_id": "12345abcde",
-  "user_id": "tenant123",
-  "booking_number": "BK78901",
-  "conversation_history": [
-    {
-      "role": "user",
-      "message": "I'd like to extend my stay for 3 more days",
-      "timestamp": "2023-11-15T14:30:00Z"
-    },
-    {
-      "role": "assistant",
-      "message": "I'd be happy to help you with that. Let me check the availability.",
-      "timestamp": "2023-11-15T14:30:15Z"
-    }
-  ],
-  "apartment_information": {
-    "apartment_id": "APT456",
-    "location": {
-      "address": "123 Beach Avenue",
-      "city": "Tel Aviv",
-      "country": "Israel"
-    },
-    "wifi_details": {
-      "network_name": "Guest_WiFi",
-      "password": "welcomeguest2023"
-    },
-    "available_services": [
-      {
-        "service_type": "car_service",
-        "description": "Car rental with delivery to apartment",
-        "contact": "+972123456789"
-      },
-      {
-        "service_type": "food_delivery",
-        "description": "Local restaurant partnerships with discount"
-      }
-    ]
-  }
-}
-```
-
-### Response Object
-
-```json
-{
-  "session_id": "12345abcde",
-  "response_type": "answer",
-  "message": "I've checked and your apartment is available for a 3-day extension. The total cost for the additional days would be $450. Would you like me to book this extension for you?",
-  "confidence_score": 0.92,
-  "intent_detected": "extend_stay"
-}
-```
-
-### Information Request Object
-
-```json
-{
-  "session_id": "12345abcde",
-  "response_type": "request_info",
-  "required_information": {
-    "type": "availability_check",
-    "parameters": {
-      "apartment_id": "APT456",
-      "check_in_date": "2023-11-20",
-      "check_out_date": "2023-11-23"
-    }
-  },
-  "user_message": "I need to check if we can extend your stay. What dates were you considering?"
-}
-```
-
-## System Flow
-
-1. **Request Flow**:
-   - The backend sends an API request with user query and context
-   - Requests include booking information, conversation history, and apartment details
-
-2. **Processing Flow**:
-   - The Bot Service processes requests through:
-     - Intent Recognition: Determines what the user wants
-     - Reasoning Engine: Analyzes the request against available knowledge
-     - Response Generation: Creates appropriate responses
-
-3. **Storage Components**:
-   - AWS OpenSearch: Stores vector embeddings for semantic searching
-   - AWS S3: Stores knowledge base documents, FAQs, and policies
-
-4. **Response Flow**:
-   - The bot returns either:
-     - A direct answer to the user's query
-     - A request for additional information needed to fulfill the request
 
 ## Prerequisites
 
@@ -348,14 +252,17 @@ For production environments, secrets can be loaded from AWS Secrets Manager inst
 
 ## Authentication System
 
-The application includes a complete authentication system using AWS Cognito with the following features:
+The application includes a complete authentication system using AWS Cognito as the primary authentication mechanism, with a development-only fallback for testing:
 
 ### Features
+- **Primary Authentication**: AWS Cognito for production and development
+- **Development Fallback**: Local JWT tokens for API testing (dev mode only)
 - **Email-based usernames** with automatic transformation for Cognito compatibility
 - **Role-based access control** (Admin/User roles)
 - **JWT token management** with automatic refresh
 - **LocalStack integration** for development
 - **Protected routes** in both frontend and backend
+- **Production Security**: Local tokens disabled in production mode
 
 ### Email-to-Username Transformation
 
@@ -367,13 +274,36 @@ Since Cognito has issues with @ symbols in usernames, the system automatically t
 - **Admin**: First user to register automatically becomes admin
 - **User**: All subsequent users get user role by default
 
+### Dual Authentication System
+
+The system supports two authentication modes:
+
+#### 1. Primary: AWS Cognito Authentication
+- **Production**: Only Cognito tokens are accepted
+- **Development**: Cognito tokens are tried first
+- **Features**: Full user management, email verification, password reset
+- **Token Type**: RS256 signed JWT tokens from AWS Cognito
+
+#### 2. Fallback: Local Development Tokens (Dev Mode Only)
+- **Purpose**: API testing and development without Cognito setup
+- **Availability**: Only when `APP_ENV=development`
+- **Security**: Automatically disabled in production
+- **Token Type**: HS256 signed JWT tokens using local secret key
+
 ### Authentication Flow
 
+#### Cognito Flow (Primary)
 1. **Registration**: User registers with email and password
 2. **Confirmation**: User confirms email with verification code
 3. **Login**: User signs in with email and password
 4. **Token Management**: JWT tokens are automatically refreshed
 5. **Role Assignment**: First user becomes admin, others become users
+
+#### Development Testing Flow (Fallback)
+1. **Create Test User**: Use dev endpoint to create test user in database
+2. **Generate Token**: Use dev endpoint to create local JWT token
+3. **API Testing**: Use token to test protected endpoints
+4. **No Cognito Required**: Skip Cognito setup for quick API testing
 
 ### API Endpoints
 
@@ -384,6 +314,11 @@ Since Cognito has issues with @ symbols in usernames, the system automatically t
 - `POST /api/v1/auth/refresh-token` - Refresh access token
 - `GET /api/v1/auth/me` - Get current user info
 - `POST /api/v1/auth/signout` - Sign out user
+
+#### Development Endpoints (Dev Mode Only)
+- `POST /api/v1/dev/create-token` - Create local JWT token for testing
+- `GET /api/v1/dev/users` - List users for token creation
+- `POST /api/v1/dev/create-test-user` - Create test user in database
 
 #### Example API Usage
 
@@ -406,6 +341,26 @@ POST /api/v1/auth/signin
 }
 ```
 
+**Development Token Creation (Dev Mode Only):**
+```json
+POST /api/v1/dev/create-test-user
+{}
+
+POST /api/v1/dev/create-token
+{
+  "username": "testuser",
+  "email": "test@example.com",
+  "expires_in": 3600
+}
+```
+
+**Using Development Token:**
+```bash
+# Get the token from the response above
+curl -H "Authorization: Bearer YOUR_DEV_TOKEN" \
+     http://localhost:9000/api/v1/auth/me
+```
+
 **Protected Endpoint Usage:**
 ```python
 from app.dependencies import get_current_active_user, get_current_admin_user
@@ -419,6 +374,34 @@ async def protected_endpoint(current_user: User = Depends(get_current_active_use
 @app.get("/admin-only")
 async def admin_endpoint(current_user: User = Depends(get_current_admin_user)):
     return {"message": "Hello admin"}
+```
+
+### Security Configuration
+
+#### Development Mode (`APP_ENV=development`)
+- **Cognito tokens**: Validated first (preferred)
+- **Local tokens**: Accepted as fallback for testing
+- **Secret key**: Used from `secrets.yaml` → `security.secret_key`
+- **Dev endpoints**: Available at `/api/v1/dev/*`
+
+#### Production Mode (`APP_ENV=production`)
+- **Cognito tokens**: Only authentication method
+- **Local tokens**: Completely disabled
+- **Secret key**: Should be stored in AWS Secrets Manager
+- **Dev endpoints**: Return 404 (not available)
+
+#### Token Validation Priority
+1. **Try Cognito validation** (RS256, JWKS verification)
+2. **If dev mode and Cognito fails**: Try local token validation (HS256)
+3. **If production and Cognito fails**: Reject token
+
+#### Required Configuration
+```yaml
+# secrets.yaml (development)
+security:
+  secret_key: "dev_secret_key_for_testing_only_not_for_production"
+  algorithm: "HS256"
+  access_token_expire_minutes: 30
 ```
 
 ## Development Commands
@@ -511,11 +494,39 @@ npm run test:coverage    # Run with coverage
 ```
 
 ### Integration Testing
+
+#### Cognito Authentication Testing
 Test the complete authentication flow:
 1. Register new user → Confirm email → Login
 2. Test role assignment (first user = admin)
 3. Test protected routes and API endpoints
 4. Test token refresh functionality
+
+#### Development Token Testing
+Quick API testing without Cognito setup:
+```bash
+# 1. Create test user
+curl -X POST http://localhost:9000/api/v1/dev/create-test-user
+
+# 2. Generate development token
+curl -X POST http://localhost:9000/api/v1/dev/create-token \
+  -H "Content-Type: application/json" \
+  -d '{"username": "testuser", "expires_in": 3600}'
+
+# 3. Test protected endpoint
+curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+     http://localhost:9000/api/v1/auth/me
+
+# 4. Test admin endpoint (if testuser has admin role)
+curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+     http://localhost:9000/api/v1/admin-endpoint
+```
+
+#### Authentication Priority Testing
+1. **With valid Cognito token**: Should use Cognito validation
+2. **With invalid Cognito + valid local token (dev)**: Should fallback to local
+3. **With invalid tokens in production**: Should reject all tokens
+4. **Dev endpoints in production**: Should return 404
 
 ## Troubleshooting
 
@@ -525,6 +536,9 @@ Test the complete authentication flow:
 - "Authentication required": Token expired → Sign out and sign in again
 - "User not found": User exists in Cognito but not in database → Sign in again
 - "Invalid token": Check JWT token validity and expiration
+- "Token validation failed": In dev mode, check both Cognito and local token formats
+- "Development endpoints not available": Ensure `APP_ENV=development`
+- "Local tokens not allowed": Trying to use dev tokens in production mode
 
 **LocalStack Issues:**
 - "Failed to fetch JWKS": Ensure LocalStack is running and Cognito is set up

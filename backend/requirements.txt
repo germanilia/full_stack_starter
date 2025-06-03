@@ -12,5 +12,7 @@ pyyaml
 typer
 boto3
 python-jose[cryptography]
+PyJWT
+requests
 passlib[bcrypt]
 python-multipart

@@ -14,11 +14,12 @@ logger = get_logger(__name__)
 
 
 class JWTValidator:
-    """JWT token validator for Cognito tokens"""
+    """JWT token validator for Cognito tokens with dev mode fallback"""
 
     def __init__(self):
         self.cognito_config = config_service.get_cognito_config()
         self.is_localstack = config_service.is_localstack_enabled()
+        self.is_development = config_service.is_development()
         self._jwks_cache: Optional[Dict[str, Any]] = None
 
     def _get_jwks_url(self) -> str:
@@ -64,14 +65,36 @@ class JWTValidator:
         raise Exception(f"Unable to find signing key with kid: {kid}")
 
     def validate_token(self, token: str) -> TokenData:
-        """Validate JWT token and return token data"""
+        """
+        Validate JWT token and return token data.
+        Tries Cognito validation first, then falls back to local token validation in dev mode.
+        """
+        # First, try to validate as Cognito token
+        try:
+            return self._validate_cognito_token(token)
+        except Exception as cognito_error:
+            logger.debug(f"Cognito token validation failed: {cognito_error}")
+
+            # In development mode, try local token validation as fallback
+            if self.is_development:
+                try:
+                    return self._validate_local_token(token)
+                except Exception as local_error:
+                    logger.debug(f"Local token validation failed: {local_error}")
+                    raise Exception("Token validation failed: Invalid token format")
+            else:
+                # In production, only Cognito tokens are allowed
+                raise Exception("Token validation failed: Invalid Cognito token")
+
+    def _validate_cognito_token(self, token: str) -> TokenData:
+        """Validate Cognito JWT token"""
         try:
             # Decode token header to get key ID
             unverified_header = jose_jwt.get_unverified_header(token)
-            
+
             # Get signing key
             signing_key = self._get_signing_key(unverified_header)
-            
+
             # Verify and decode token
             payload = jose_jwt.decode(
                 token,
@@ -80,36 +103,72 @@ class JWTValidator:
                 audience=self.cognito_config["client_id"],
                 options={"verify_exp": True}
             )
-            
+
             # Extract token data
             username = payload.get("cognito:username") or payload.get("username")
             user_sub = payload.get("sub")
             email = payload.get("email")
-            
+
             # Verify token type
             token_use = payload.get("token_use")
             if token_use not in ["access", "id"]:
                 raise Exception("Invalid token type")
-            
+
             # Check expiration
             exp = payload.get("exp")
             if exp and datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
                 raise Exception("Token has expired")
-            
-            logger.info(f"Token validated successfully for user: {username}")
-            
+
+            logger.info(f"Cognito token validated successfully for user: {username}")
+
             return TokenData(
                 username=username,
                 user_sub=user_sub,
                 email=email
             )
-            
+
         except JWTError as e:
-            logger.error(f"JWT validation error: {e}")
-            raise Exception("Invalid token")
+            logger.error(f"Cognito JWT validation error: {e}")
+            raise Exception("Invalid Cognito token")
         except Exception as e:
-            logger.error(f"Token validation failed: {e}")
-            raise Exception("Token validation failed")
+            logger.error(f"Cognito token validation failed: {e}")
+            raise Exception("Cognito token validation failed")
+
+    def _validate_local_token(self, token: str) -> TokenData:
+        """Validate local development token (only in dev mode)"""
+        if not self.is_development:
+            raise Exception("Local tokens not allowed in production")
+
+        try:
+            secret_key = config_service.get_secret_key()
+            algorithm = config_service.get("security.algorithm", "HS256")
+
+            payload = jose_jwt.decode(token, secret_key, algorithms=[algorithm])
+
+            # Extract token data
+            username = payload.get("username")
+            user_sub = payload.get("user_sub")
+            email = payload.get("email")
+
+            # Check expiration
+            exp = payload.get("exp")
+            if exp and datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
+                raise Exception("Token has expired")
+
+            logger.info(f"Local token validated successfully for user: {username}")
+
+            return TokenData(
+                username=username,
+                user_sub=user_sub,
+                email=email
+            )
+
+        except JWTError as e:
+            logger.error(f"Local token validation error: {e}")
+            raise Exception("Invalid local token")
+        except Exception as e:
+            logger.error(f"Local token validation failed: {e}")
+            raise Exception("Local token validation failed")
 
     def decode_token_without_verification(self, token: str) -> Dict[str, Any]:
         """Decode token without verification (for debugging)"""
@@ -125,21 +184,29 @@ jwt_validator = JWTValidator()
 
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[int] = None) -> str:
-    """Create a local access token (fallback for development)"""
+    """Create a local access token (for development only)"""
+    if not config_service.is_development():
+        raise Exception("Local token creation not allowed in production")
+
     to_encode = data.copy()
-    
+
     if expires_delta:
         expire = datetime.now(timezone.utc).timestamp() + expires_delta
     else:
         expire = datetime.now(timezone.utc).timestamp() + 3600  # 1 hour default
-    
+
     to_encode.update({"exp": expire})
-    
+
+    # Ensure required fields are present
+    if "username" not in to_encode:
+        raise Exception("Username is required for local token")
+
     # Use the secret key from configuration
     secret_key = config_service.get_secret_key()
     algorithm = config_service.get("security.algorithm", "HS256")
-    
+
     encoded_jwt = jose_jwt.encode(to_encode, secret_key, algorithm=algorithm)
+    logger.info(f"Created local access token for user: {to_encode.get('username')}")
     return encoded_jwt
 
 
