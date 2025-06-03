@@ -155,15 +155,32 @@ create_cognito:
     else
         echo "User Pool doesn't exist. Creating User Pool and Client..."
 
-        # Create user pool with auto-confirmation (no email verification)
-        USER_POOL_RESPONSE=$(aws cognito-idp create-user-pool \
-            --pool-name "$POOL_NAME" \
-            --region $REGION \
-            --policies '{"PasswordPolicy":{"MinimumLength":8,"RequireUppercase":false,"RequireLowercase":false,"RequireNumbers":false,"RequireSymbols":false}}' \
-            --username-attributes email \
-            --admin-create-user-config '{"AllowAdminCreateUserOnly":false}' \
-            --query "UserPool.Id" \
-            --output text)
+        # Create user pool with environment-specific configuration
+        if [ "$APP_ENV" = "development" ]; then
+            # Development: Simple setup, no email verification required
+            echo "Creating development User Pool (no email verification)..."
+            USER_POOL_RESPONSE=$(aws cognito-idp create-user-pool \
+                --pool-name "$POOL_NAME" \
+                --region $REGION \
+                --policies '{"PasswordPolicy":{"MinimumLength":8,"RequireUppercase":false,"RequireLowercase":false,"RequireNumbers":false,"RequireSymbols":false}}' \
+                --username-attributes email \
+                --admin-create-user-config '{"AllowAdminCreateUserOnly":false}' \
+                --query "UserPool.Id" \
+                --output text)
+        else
+            # Production: Require email verification
+            echo "Creating production User Pool (with email verification)..."
+            USER_POOL_RESPONSE=$(aws cognito-idp create-user-pool \
+                --pool-name "$POOL_NAME" \
+                --region $REGION \
+                --policies '{"PasswordPolicy":{"MinimumLength":8,"RequireUppercase":true,"RequireLowercase":true,"RequireNumbers":true,"RequireSymbols":false}}' \
+                --username-attributes email \
+                --admin-create-user-config '{"AllowAdminCreateUserOnly":false}' \
+                --auto-verified-attributes email \
+                --verification-message-template '{"DefaultEmailOption":"CONFIRM_WITH_CODE","EmailMessage":"Your verification code is {####}","EmailSubject":"Your verification code"}' \
+                --query "UserPool.Id" \
+                --output text)
+        fi
 
         USER_POOL_ID="$USER_POOL_RESPONSE"
         echo "✓ User Pool created successfully! (ID: $USER_POOL_ID)"
@@ -191,15 +208,33 @@ create_cognito:
     echo ""
     echo "💡 Note: This User Pool has minimal password requirements and no email verification for development ease."
     echo ""
-    echo "📝 Next steps:"
-    echo "1. Update your application configuration with these values"
-    echo "2. If using AWS Secrets Manager, add these to your secret"
-    echo "3. For local development, you can add these to your secrets.yaml file:"
+
+    # Automatically add Cognito IDs to environment file
+    echo "📝 Updating .env.$APP_ENV file..."
+    if [ -f ".env.$APP_ENV" ]; then
+        # Create a backup
+        cp ".env.$APP_ENV" ".env.$APP_ENV.backup"
+
+        # Remove any existing Cognito ID lines first (but keep COGNITO_REGION)
+        grep -v "^COGNITO_USER_POOL_ID=" ".env.$APP_ENV" | grep -v "^COGNITO_CLIENT_ID=" | grep -v "^# Cognito IDs (from create_cognito" > ".env.$APP_ENV.tmp"
+        mv ".env.$APP_ENV.tmp" ".env.$APP_ENV"
+
+        # Add the new Cognito IDs
+        echo "# Cognito IDs (from create_cognito_$APP_ENV output)" >> ".env.$APP_ENV"
+        echo "COGNITO_USER_POOL_ID=$USER_POOL_ID" >> ".env.$APP_ENV"
+        echo "COGNITO_CLIENT_ID=$CLIENT_ID" >> ".env.$APP_ENV"
+
+        echo "✓ Added Cognito configuration to .env.$APP_ENV"
+        echo "✓ Backup saved as .env.$APP_ENV.backup"
+    else
+        echo "⚠️  .env.$APP_ENV file not found. Please create it and add:"
+        echo "COGNITO_USER_POOL_ID=$USER_POOL_ID"
+        echo "COGNITO_CLIENT_ID=$CLIENT_ID"
+        echo "COGNITO_REGION=$REGION"
+    fi
+
     echo ""
-    echo "cognito:"
-    echo "  user_pool_id: \"$USER_POOL_ID\""
-    echo "  client_id: \"$CLIENT_ID\""
-    echo "  region: \"$REGION\""
+    echo "🎉 Cognito setup complete! Your backend will automatically use the new configuration."
 
 # Create Cognito for development environment
 create_cognito_dev:
@@ -208,6 +243,77 @@ create_cognito_dev:
 # Create Cognito for production environment
 create_cognito_prod:
     APP_ENV=production just create_cognito
+
+# Delete Cognito User Pool and Client
+delete_cognito:
+    #!/bin/bash
+    set -e
+    cd backend
+
+    # Load environment variables
+    APP_ENV=${APP_ENV:-development}
+    if [ -f ".env.$APP_ENV" ]; then
+        export $(grep -v '^#' .env.$APP_ENV | xargs)
+    fi
+
+    # Load AWS credentials from secrets.yaml
+    if [ -f "secrets.yaml" ]; then
+        echo "Loading AWS credentials from secrets.yaml..."
+        export AWS_ACCESS_KEY_ID=$(python3 -c "import yaml; data=yaml.safe_load(open('secrets.yaml')); print(data['aws']['access_key_id'])")
+        export AWS_SECRET_ACCESS_KEY=$(python3 -c "import yaml; data=yaml.safe_load(open('secrets.yaml')); print(data['aws']['secret_access_key'])")
+        export AWS_DEFAULT_REGION=$(python3 -c "import yaml; data=yaml.safe_load(open('secrets.yaml')); print(data['aws']['region'])")
+        echo "AWS credentials loaded successfully"
+    fi
+
+    # Get Cognito config from environment variables (not secrets.yaml)
+    USER_POOL_ID=${COGNITO_USER_POOL_ID:-""}
+    CLIENT_ID=${COGNITO_CLIENT_ID:-""}
+    REGION=${COGNITO_REGION:-"us-east-1"}
+
+    if [ -z "$USER_POOL_ID" ]; then
+        echo "ERROR: COGNITO_USER_POOL_ID not found in environment variables"
+        echo "Make sure .env.$APP_ENV contains COGNITO_USER_POOL_ID"
+        exit 1
+    fi
+
+    echo "Deleting Cognito resources for environment: $APP_ENV"
+    echo "User Pool ID: $USER_POOL_ID"
+    echo "Client ID: $CLIENT_ID"
+    echo "Region: $REGION"
+
+    # Delete client if specified
+    if [ -n "$CLIENT_ID" ]; then
+        echo "Deleting User Pool Client: $CLIENT_ID"
+        aws cognito-idp delete-user-pool-client --user-pool-id "$USER_POOL_ID" --client-id "$CLIENT_ID" --region "$REGION" || echo "Client deletion failed or already deleted"
+    fi
+
+    # Delete the user pool
+    echo "Deleting User Pool: $USER_POOL_ID"
+    aws cognito-idp delete-user-pool --user-pool-id "$USER_POOL_ID" --region "$REGION"
+
+    # Remove Cognito IDs from environment file
+    echo "Cleaning up environment variables..."
+    if [ -f ".env.$APP_ENV" ]; then
+        # Create a backup
+        cp ".env.$APP_ENV" ".env.$APP_ENV.backup"
+
+        # Remove the Cognito ID lines and related comments
+        grep -v "^COGNITO_USER_POOL_ID=" ".env.$APP_ENV" | grep -v "^COGNITO_CLIENT_ID=" | grep -v "^# Cognito IDs (from create_cognito" > ".env.$APP_ENV.tmp"
+        mv ".env.$APP_ENV.tmp" ".env.$APP_ENV"
+
+        echo "Removed COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID from .env.$APP_ENV"
+        echo "Backup saved as .env.$APP_ENV.backup"
+    fi
+
+    echo "Cognito resources deleted successfully"
+
+# Delete Cognito for development environment
+delete_cognito_dev:
+    APP_ENV=development just delete_cognito
+
+# Delete Cognito for production environment
+delete_cognito_prod:
+    APP_ENV=production just delete_cognito
 
 # Setup AWS services (LocalStack SQS + Real AWS Cognito)
 setup_aws_services:

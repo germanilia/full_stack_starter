@@ -13,7 +13,8 @@ from app.schemas.user import UserResponse, UserUpdate
 from app.services.cognito_service import cognito_service
 from app.services.user_service import UserService
 from app.core.logging_service import get_logger
-from app.utils.username_utils import validate_and_transform_email
+from app.utils.username_utils import validate_and_normalize_email
+from app.core.exceptions import CognitoError, ValidationError
 
 logger = get_logger(__name__)
 
@@ -31,7 +32,13 @@ async def sign_up(
     """
     try:
         # Validate and normalize email
-        normalized_email, _ = validate_and_transform_email(request.email)
+        try:
+            normalized_email = validate_and_normalize_email(request.email)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
 
         # Check if user already exists in database
         existing_email = user_service.get_user_by_email(db, normalized_email)
@@ -59,19 +66,31 @@ async def sign_up(
 
         logger.info(f"User {normalized_email} signed up successfully")
 
+        # Determine the message based on whether user is confirmed
+        if cognito_response["user_confirmed"]:
+            message = "User registered and confirmed successfully. You can now sign in."
+        else:
+            message = "User registered successfully. Please check your email for confirmation code."
+
         return SignUpResponse(
-            message="User registered successfully. Please check your email for confirmation code.",
+            message=message,
             user_sub=cognito_response["user_sub"],
             user_confirmed=cognito_response["user_confirmed"]
         )
 
     except HTTPException:
         raise
+    except CognitoError as e:
+        logger.error(f"Cognito error during sign up for {request.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.message
+        )
     except Exception as e:
-        logger.error(f"Sign up failed for {request.email}: {e}")
+        logger.error(f"Unexpected error during sign up for {request.email}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed"
+            detail="An unexpected error occurred. Please try again."
         )
 
 
@@ -92,11 +111,17 @@ async def confirm_sign_up(request: ConfirmSignUpRequest):
             message="User confirmed successfully. You can now sign in."
         )
 
-    except Exception as e:
-        logger.error(f"Confirmation failed for {request.email}: {e}")
+    except CognitoError as e:
+        logger.error(f"Cognito error during confirmation for {request.email}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail=e.message
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error during confirmation for {request.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred. Please try again."
         )
 
 
@@ -161,11 +186,17 @@ async def sign_in(
             )
         )
 
-    except Exception as e:
-        logger.error(f"Sign in failed for {request.email}: {e}")
+    except CognitoError as e:
+        logger.error(f"Cognito error during sign in for {request.email}: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
+            detail=e.message
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error during sign in for {request.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred. Please try again."
         )
 
 

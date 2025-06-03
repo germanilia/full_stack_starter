@@ -65,10 +65,12 @@ A full-stack application with a FastAPI backend and React frontend, designed for
 ## Features
 
 - **Authentication System**: Complete user authentication with AWS Cognito
-  - Email-based usernames with automatic transformation
+  - Email-based usernames (no transformation needed)
   - Role-based access control (Admin/User roles)
   - JWT token management with automatic refresh
-  - LocalStack integration for development
+  - Auto-confirmation in development mode
+  - User-friendly error messages
+  - Environment-based configuration
 - **Dark Mode Support**: Complete dark/light theme system with proper styling
 - **Responsive Design**: Mobile-first responsive UI components
 - **Configuration Management**: Flexible configuration system
@@ -117,7 +119,7 @@ cd client && npm install
 
 ### 3. Set Up AWS Cognito
 
-Create Cognito User Pool and Client on real AWS (no LocalStack needed):
+Create Cognito User Pool and Client on real AWS:
 
 ```bash
 # For development environment
@@ -130,11 +132,21 @@ just create_cognito_prod
 just create_cognito
 ```
 
+The command will automatically add the Cognito configuration to your environment file:
+
+```bash
+# The command automatically adds these lines to backend/.env.development:
+# COGNITO_USER_POOL_ID=us-west-2_ABC123DEF
+# COGNITO_CLIENT_ID=1a2b3c4d5e6f7g8h9i0j
+
+# A backup is created before modification (.env.development.backup)
+```
+
 **Note**: This creates real AWS Cognito resources with minimal configuration for easy development. The User Pool will have:
 - Simple password requirements (8 characters minimum)
-- No email verification required
-- Auto-confirmation enabled
-- Email as username
+- No email verification required in development
+- Auto-confirmation enabled for development
+- Email as username (no transformation needed)
 
 ### 4. Database Setup
 
@@ -398,7 +410,7 @@ The application uses a flexible configuration system that loads settings from mu
 
 #### Environment Files (Non-sensitive)
 - `.env.development`: Development environment settings
-- `.env.production`: Production environment settings  
+- `.env.production`: Production environment settings
 - `.env.testing`: Testing environment settings
 
 Common environment variables:
@@ -412,6 +424,8 @@ Common environment variables:
 - `COGNITO_REGION`: AWS region for Cognito (default: us-east-1)
 - `COGNITO_POOL_NAME`: Cognito User Pool name
 - `COGNITO_CLIENT_NAME`: Cognito User Pool Client name
+- `COGNITO_USER_POOL_ID`: Cognito User Pool ID (from create_cognito output)
+- `COGNITO_CLIENT_ID`: Cognito Client ID (from create_cognito output)
 
 #### Secrets File (Sensitive Information)
 The `secrets.yaml` file contains all sensitive configuration:
@@ -438,11 +452,8 @@ aws:
   access_key_id: "your_aws_access_key_id"
   secret_access_key: "your_aws_secret_access_key"
 
-# Cognito configuration (add after running 'just create_cognito')
-cognito:
-  user_pool_id: "us-east-1_XXXXXXXXX"  # From create_cognito output
-  client_id: "your_client_id"          # From create_cognito output
-  region: "us-east-1"                  # Should match COGNITO_REGION
+# Note: Cognito configuration is now stored in environment files (.env.development, .env.production)
+# not in secrets.yaml. See environment variables section above.
 ```
 
 ### Frontend Configuration
@@ -506,14 +517,20 @@ Cognito settings are managed through environment variables in `.env.development`
 
 ```bash
 # Development environment (.env.development)
-COGNITO_REGION=us-east-1
+COGNITO_REGION=us-west-2
 COGNITO_POOL_NAME=MyAppUserPool-Dev
 COGNITO_CLIENT_NAME=MyAppClient-Dev
+# These are added after running 'just create_cognito_dev':
+COGNITO_USER_POOL_ID=us-west-2_ABC123DEF
+COGNITO_CLIENT_ID=1a2b3c4d5e6f7g8h9i0j
 
 # Production environment (.env.production)
-COGNITO_REGION=us-east-1
+COGNITO_REGION=us-west-2
 COGNITO_POOL_NAME=MyAppUserPool-Prod
 COGNITO_CLIENT_NAME=MyAppClient-Prod
+# These are added after running 'just create_cognito_prod':
+COGNITO_USER_POOL_ID=us-west-2_XYZ789ABC
+COGNITO_CLIENT_ID=9z8y7x6w5v4u3t2s1r0q
 ```
 
 ### Creating Cognito Resources
@@ -538,28 +555,46 @@ After running the create_cognito command, you'll get output like:
 ```
 🎉 Cognito setup complete for environment: development
 User Pool Name: MyAppUserPool-Dev
-User Pool ID: us-east-1_ABC123DEF
+User Pool ID: us-west-2_ABC123DEF
 Client Name: MyAppClient-Dev
 Client ID: 1a2b3c4d5e6f7g8h9i0j
-Region: us-east-1
+Region: us-west-2
+
+📝 Updating .env.development file...
+✓ Added Cognito configuration to .env.development
+✓ Backup saved as .env.development.backup
+
+🎉 Cognito setup complete! Your backend will automatically use the new configuration.
 ```
 
-Add these values to your `secrets.yaml` file:
-
-```yaml
-cognito:
-  user_pool_id: "us-east-1_ABC123DEF"
-  client_id: "1a2b3c4d5e6f7g8h9i0j"
-  region: "us-east-1"
-```
+The command automatically adds the Cognito IDs to your environment file and creates a backup. No manual configuration needed!
 
 ### Cognito Features
 
 The created User Pools have these characteristics:
 - **Simple passwords**: 8 characters minimum, no complexity requirements
-- **Email usernames**: Users sign in with their email address
-- **No email verification**: Users are auto-confirmed (development-friendly)
+- **Email usernames**: Users sign in with their email address (no transformation needed)
+- **Auto-confirmation**: Users are auto-confirmed in development mode (no email verification)
+- **User-friendly errors**: Meaningful error messages instead of generic API errors
 - **Multiple auth flows**: Supports password auth, SRP auth, and refresh tokens
+- **Environment-based config**: Configuration stored in environment files, not secrets
+
+### Deleting Cognito Resources
+
+To clean up Cognito resources:
+
+```bash
+# Delete development Cognito resources
+just delete_cognito_dev
+
+# Delete production Cognito resources
+just delete_cognito_prod
+
+# Delete for current environment
+just delete_cognito
+```
+
+**Note**: The delete command reads the User Pool ID and Client ID from your environment variables, deletes the AWS resources, and then automatically removes the `COGNITO_USER_POOL_ID` and `COGNITO_CLIENT_ID` lines from your `.env` file. A backup is created before modification.
 
 ## Authentication System
 
@@ -568,18 +603,19 @@ The application includes a complete authentication system using AWS Cognito as t
 ### Features
 - **Primary Authentication**: AWS Cognito for production and development
 - **Development Fallback**: Local JWT tokens for API testing (dev mode only)
-- **Email-based usernames** with automatic transformation for Cognito compatibility
+- **Email-based usernames** for seamless user experience
 - **Role-based access control** (Admin/User roles)
 - **JWT token management** with automatic refresh
 - **LocalStack integration** for development
 - **Protected routes** in both frontend and backend
 - **Production Security**: Local tokens disabled in production mode
 
-### Email-to-Username Transformation
+### Email Username Support
 
-Since Cognito has issues with @ symbols in usernames, the system automatically transforms emails:
-- **Storage**: `user@domain.com` → `user_domain.com` (in Cognito)
-- **Display**: `user_domain.com` → `user@domain.com` (to users)
+The system uses email addresses directly as usernames in Cognito:
+- **Direct email usage**: `user@domain.com` is used as-is in Cognito
+- **Cognito configuration**: User Pool is configured with `username_attributes = ["email"]`
+- **Seamless experience**: Users sign in with their email address
 
 ### User Roles and Admin System
 
@@ -697,6 +733,37 @@ curl -H "Authorization: Bearer YOUR_DEV_TOKEN" \
      http://localhost:9000/api/v1/auth/me
 ```
 
+#### Testing Admin Role Assignment
+
+You can test the admin role assignment system:
+
+1. **Clear Database**: Ensure you start with an empty user table
+2. **Register First User**: Use the signup endpoint or frontend
+3. **Check Role**: The first user should have `"role": "admin"` in the response
+4. **Register Second User**: Create another user
+5. **Verify Role**: The second user should have `"role": "user"`
+
+**Example API Test:**
+```bash
+# First user (becomes admin)
+curl -X POST "http://localhost:9000/api/v1/auth/signup" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "email": "admin@example.com",
+       "password": "SecurePass123!",
+       "full_name": "Admin User"
+     }'
+
+# Sign in and check role
+curl -X POST "http://localhost:9000/api/v1/auth/signin" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "email": "admin@example.com",
+       "password": "SecurePass123!"
+     }'
+# Response will include: "user": {"role": "admin", ...}
+```
+
 **Protected Endpoint Usage:**
 ```python
 from app.dependencies import get_current_active_user, get_current_admin_user
@@ -757,8 +824,13 @@ just run-client       # Frontend only
 just generate_migration "migration message"
 just migrate          # Apply migrations
 
-# LocalStack setup
-just create_cognito   # Create Cognito resources
+# Cognito management
+just create_cognito_dev   # Create Cognito resources for development
+just create_cognito_prod  # Create Cognito resources for production
+just delete_cognito_dev   # Delete Cognito resources for development
+just delete_cognito_prod  # Delete Cognito resources for production
+
+# LocalStack setup (if using LocalStack)
 just setup_localstack # Setup all LocalStack services
 
 # Testing
@@ -825,25 +897,63 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 ## Testing
 
 ### Backend Testing
+
+#### Running Tests
 ```bash
 cd backend
-pytest                    # Run all tests
-pytest tests/test_auth.py # Run specific test file
-pytest -v                # Verbose output
-pytest --cov=app         # Coverage report
-pytest -x                # Stop on first failure
+
+# Install test dependencies first
+pip install pytest pytest-asyncio httpx
+
+# Run all tests
+pytest
+
+# Run specific test categories
+pytest tests/unit/                    # Unit tests only
+pytest tests/integration/             # Integration tests only
+
+# Run specific test files
+pytest tests/unit/test_user_dao.py    # User DAO tests
+pytest tests/unit/test_auth_endpoints.py  # Auth endpoint tests
+pytest tests/integration/test_auth_admin_flow.py  # Admin flow tests
+
+# Run with verbose output
+pytest -v
+
+# Run with coverage
+pytest --cov=app
 ```
 
-Test structure:
+#### Admin Role Tests
+The application includes comprehensive tests for the admin role assignment system:
+
+**Unit Tests** (`tests/unit/`):
+- `test_user_dao.py`: Tests admin assignment in UserDAO
+- `test_user_service.py`: Tests admin assignment in UserService
+- `test_auth_endpoints.py`: Tests admin role in authentication endpoints
+
+**Integration Tests** (`tests/integration/`):
+- `test_auth_admin_flow.py`: End-to-end admin role assignment testing
+- `test_cognito_setup.py`: Cognito integration tests
+
+**Key Test Scenarios**:
+- First user becomes admin
+- Second user becomes regular user
+- Admin role persists in database
+- Authentication flow preserves admin role
+- Signup/signin endpoints return correct roles
+
+#### Test Structure
 ```
 backend/tests/
-├── conftest.py           # Test configuration
-├── test_auth.py         # Authentication tests
-├── test_users.py        # User management tests
-├── test_admin.py        # Admin functionality tests
-└── integration/         # Integration tests
-    ├── test_api.py
-    └── test_database.py
+├── conftest.py                      # Test configuration and fixtures
+├── unit/                           # Unit tests
+│   ├── test_user_dao.py           # UserDAO tests (includes admin logic)
+│   ├── test_user_service.py       # UserService tests
+│   └── test_auth_endpoints.py     # Authentication endpoint tests
+└── integration/                    # Integration tests
+    ├── test_auth_admin_flow.py    # Admin role assignment flow
+    └── test_cognito_setup.py      # Cognito integration tests
 ```
 
 ### Frontend Testing
@@ -924,6 +1034,15 @@ npm run test:e2e:debug   # Debug mode
 - "Token validation failed": In dev mode, check both Cognito and local token formats
 - "Development endpoints not available": Ensure `APP_ENV=development`
 - "Local tokens not allowed": Trying to use dev tokens in production mode
+- "Invalid email or password": Check credentials, user may not exist or be confirmed
+- "User account is not confirmed": In development, users should be auto-confirmed
+- "Temporary password has expired": Reset password or contact admin
+
+**Cognito Configuration Errors:**
+- "COGNITO_USER_POOL_ID not found": Check environment variables in `.env.development`
+- "Cognito client initialization failed": Verify AWS credentials and region
+- "User Pool not found": Run `just create_cognito_dev` to create resources
+- "Multiple User Pools found": Delete duplicate pools manually in AWS Console
 
 **Frontend/Styling Issues:**
 - **Dark mode not working**: Check if ThemeProvider is properly configured

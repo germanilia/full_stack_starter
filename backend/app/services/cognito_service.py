@@ -7,10 +7,11 @@ import hmac
 import hashlib
 import base64
 from typing import Dict, Optional, Any
-from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.exceptions import ClientError
 from app.core.config_service import config_service
 from app.core.logging_service import get_logger
-from app.utils.username_utils import email_to_cognito_username, cognito_username_to_email
+from app.core.exceptions import CognitoError, get_user_friendly_error_message
+
 
 logger = get_logger(__name__)
 
@@ -66,8 +67,8 @@ class CognitoService:
     async def sign_up(self, email: str, password: str, full_name: str = "") -> Dict[str, Any]:
         """Sign up a new user using email as username"""
         try:
-            # Transform email to Cognito-compatible username
-            cognito_username = email_to_cognito_username(email)
+            # Use email directly as username since Cognito is configured with username-attributes email
+            cognito_username = email
 
             user_attributes = [
                 {"Name": "email", "Value": email}
@@ -89,10 +90,21 @@ class CognitoService:
 
             response = self.client.sign_up(**params)
 
-            logger.info(f"User {email} (cognito: {cognito_username}) signed up successfully")
+            # In development mode, auto-confirm the user
+            user_confirmed = response.get("UserConfirmed", False)
+            if not user_confirmed and config_service.is_development():
+                try:
+                    # Auto-confirm user in development
+                    await self._admin_confirm_sign_up(email)
+                    user_confirmed = True
+                    logger.info(f"User {email} auto-confirmed in development mode")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-confirm user {email}: {e}")
+
+            logger.info(f"User {email} signed up successfully")
             return {
                 "user_sub": response["UserSub"],
-                "user_confirmed": response.get("UserConfirmed", False),
+                "user_confirmed": user_confirmed,
                 "email": email,
                 "cognito_username": cognito_username
             }
@@ -101,13 +113,29 @@ class CognitoService:
             error_code = e.response["Error"]["Code"]
             error_message = e.response["Error"]["Message"]
             logger.error(f"Sign up failed for {email}: {error_code} - {error_message}")
-            raise Exception(f"Sign up failed: {error_message}")
+            user_friendly_message = get_user_friendly_error_message(error_code, error_message)
+            raise CognitoError(user_friendly_message, error_code=error_code)
+
+    async def _admin_confirm_sign_up(self, email: str) -> None:
+        """Admin confirm sign up for development mode"""
+        try:
+            self.client.admin_confirm_sign_up(
+                UserPoolId=self.config["user_pool_id"],
+                Username=email
+            )
+            logger.info(f"Admin confirmed user {email}")
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            error_message = e.response["Error"]["Message"]
+            logger.error(f"Admin confirm failed for {email}: {error_code} - {error_message}")
+            user_friendly_message = get_user_friendly_error_message(error_code, error_message)
+            raise CognitoError(user_friendly_message, error_code=error_code)
 
     async def confirm_sign_up(self, email: str, confirmation_code: str) -> bool:
         """Confirm user sign up with confirmation code"""
         try:
-            # Transform email to Cognito username
-            cognito_username = email_to_cognito_username(email)
+            # Use email directly as username since Cognito is configured with username-attributes email
+            cognito_username = email
 
             params = {
                 "ClientId": self.config["client_id"],
@@ -119,20 +147,21 @@ class CognitoService:
                 params["SecretHash"] = self._calculate_secret_hash(cognito_username)
 
             self.client.confirm_sign_up(**params)
-            logger.info(f"User {email} (cognito: {cognito_username}) confirmed successfully")
+            logger.info(f"User {email} confirmed successfully")
             return True
 
         except ClientError as e:
             error_code = e.response["Error"]["Code"]
             error_message = e.response["Error"]["Message"]
             logger.error(f"Confirmation failed for {email}: {error_code} - {error_message}")
-            raise Exception(f"Confirmation failed: {error_message}")
+            user_friendly_message = get_user_friendly_error_message(error_code, error_message)
+            raise CognitoError(user_friendly_message, error_code=error_code)
 
     async def sign_in(self, email: str, password: str) -> Dict[str, Any]:
         """Sign in a user and return tokens"""
         try:
-            # Transform email to Cognito username
-            cognito_username = email_to_cognito_username(email)
+            # Use email directly as username since Cognito is configured with username-attributes email
+            cognito_username = email
 
             params = {
                 "ClientId": self.config["client_id"],
@@ -149,7 +178,7 @@ class CognitoService:
             response = self.client.initiate_auth(**params)
 
             auth_result = response["AuthenticationResult"]
-            logger.info(f"User {email} (cognito: {cognito_username}) signed in successfully")
+            logger.info(f"User {email} signed in successfully")
 
             return {
                 "access_token": auth_result["AccessToken"],
@@ -164,7 +193,8 @@ class CognitoService:
             error_code = e.response["Error"]["Code"]
             error_message = e.response["Error"]["Message"]
             logger.error(f"Sign in failed for {email}: {error_code} - {error_message}")
-            raise Exception(f"Sign in failed: {error_message}")
+            user_friendly_message = get_user_friendly_error_message(error_code, error_message)
+            raise CognitoError(user_friendly_message, error_code=error_code)
 
     async def get_user_info(self, access_token: str) -> Dict[str, Any]:
         """Get user information from access token"""
@@ -187,13 +217,14 @@ class CognitoService:
             error_code = e.response["Error"]["Code"]
             error_message = e.response["Error"]["Message"]
             logger.error(f"Get user info failed: {error_code} - {error_message}")
-            raise Exception(f"Get user info failed: {error_message}")
+            user_friendly_message = get_user_friendly_error_message(error_code, error_message)
+            raise CognitoError(user_friendly_message, error_code=error_code)
 
     async def refresh_token(self, refresh_token: str, email: str) -> Dict[str, Any]:
         """Refresh access token using refresh token"""
         try:
-            # Transform email to Cognito username
-            cognito_username = email_to_cognito_username(email)
+            # Use email directly as username since Cognito is configured with username-attributes email
+            cognito_username = email
 
             params = {
                 "ClientId": self.config["client_id"],
@@ -209,7 +240,7 @@ class CognitoService:
             response = self.client.initiate_auth(**params)
 
             auth_result = response["AuthenticationResult"]
-            logger.info(f"Token refreshed successfully for {email} (cognito: {cognito_username})")
+            logger.info(f"Token refreshed successfully for {email}")
 
             return {
                 "access_token": auth_result["AccessToken"],
@@ -221,7 +252,8 @@ class CognitoService:
             error_code = e.response["Error"]["Code"]
             error_message = e.response["Error"]["Message"]
             logger.error(f"Token refresh failed: {error_code} - {error_message}")
-            raise Exception(f"Token refresh failed: {error_message}")
+            user_friendly_message = get_user_friendly_error_message(error_code, error_message)
+            raise CognitoError(user_friendly_message, error_code=error_code)
 
 
 # Global instance

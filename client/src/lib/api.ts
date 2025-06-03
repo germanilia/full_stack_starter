@@ -109,13 +109,13 @@ function isTokenExpired(): boolean {
 async function fetchFromApi(endpoint: string, options: RequestInit = {}) {
   try {
     const token = getAuthToken();
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string> || {}),
     };
 
     if (token && !isTokenExpired()) {
-      headers.Authorization = `Bearer ${token}`;
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -129,7 +129,22 @@ async function fetchFromApi(endpoint: string, options: RequestInit = {}) {
         clearAuthTokens();
         throw new Error('Authentication required');
       }
-      throw new Error(`API error: ${response.status}`);
+
+      // Try to get error message from response body
+      let errorMessage = `Request failed with status ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use the default message
+        console.warn('Could not parse error response:', parseError);
+      }
+
+      throw new Error(errorMessage);
     }
 
     return await response.json();

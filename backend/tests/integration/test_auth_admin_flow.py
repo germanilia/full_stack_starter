@@ -6,10 +6,11 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from app.main import app
-from app.db import Base, get_db
+from app.dependencies import get_db
+from app.db import Base
 from app.models.user import UserRole
 from app.crud.user import UserDAO
 from app.services.user_service import UserService
@@ -23,8 +24,8 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 def override_get_db():
     """Override database dependency for testing."""
+    db = TestingSessionLocal()
     try:
-        db = TestingSessionLocal()
         yield db
     finally:
         db.close()

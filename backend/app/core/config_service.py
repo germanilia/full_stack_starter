@@ -241,13 +241,13 @@ class ConfigService:
         }
 
     def get_cognito_config(self) -> Dict[str, str]:
-        """Get Cognito configuration from secrets"""
+        """Get Cognito configuration from environment variables"""
         return {
-            "user_pool_id": self.get("cognito.user_pool_id", ""),
-            "client_id": self.get("cognito.client_id", ""),
-            "client_secret": self.get("cognito.client_secret", ""),
-            "endpoint_url": self.get("cognito.endpoint_url", ""),
-            "region": self.get("aws.region", "us-east-1")
+            "user_pool_id": os.getenv("COGNITO_USER_POOL_ID", ""),
+            "client_id": os.getenv("COGNITO_CLIENT_ID", ""),
+            "client_secret": os.getenv("COGNITO_CLIENT_SECRET", ""),
+            "endpoint_url": os.getenv("COGNITO_ENDPOINT_URL", ""),
+            "region": os.getenv("COGNITO_REGION", os.getenv("AWS_DEFAULT_REGION", "us-east-1"))
         }
 
     def is_localstack_enabled(self) -> bool:
