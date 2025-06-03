@@ -1,6 +1,6 @@
 """
 Configuration service for the backend application.
-Loads configuration from environment variables and secrets file.
+Loads configuration from environment variables, AWS Secrets Manager, and secrets file.
 """
 import os
 import yaml
@@ -15,12 +15,13 @@ logger = logging.getLogger(__name__)
 class ConfigService:
     """
     Service for loading and accessing application configuration.
-    Combines environment variables and secrets from YAML file.
+    Combines environment variables, AWS Secrets Manager, and secrets from YAML file.
     """
 
     def __init__(self):
         self._config: Dict[str, Any] = {}
         self._secrets: Dict[str, Any] = {}
+        self._aws_secrets: Dict[str, Any] = {}
 
         # Determine environment
         self._env = os.getenv("APP_ENV", "development")
@@ -28,6 +29,7 @@ class ConfigService:
         # Load configuration
         self._load_env_file()
         self._load_env_vars()
+        self._load_aws_secrets()
         self._load_secrets()
 
     def _load_env_file(self) -> None:
@@ -77,6 +79,61 @@ class ConfigService:
             "log_compression": os.getenv("LOG_COMPRESSION", "zip"),
         }
 
+    def _load_aws_secrets(self) -> None:
+        """Load secrets from AWS Secrets Manager if configured"""
+        # Check if AWS Secrets Manager is configured
+        secret_name = os.getenv("AWS_SECRETS_MANAGER_SECRET_NAME")
+        if not secret_name:
+            logger.info("AWS Secrets Manager not configured. Skipping AWS secrets loading.")
+            return
+
+        try:
+            import boto3
+            from botocore.exceptions import ClientError, NoCredentialsError
+
+            # Get AWS region from environment or use default
+            region_name = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+
+            # Create a Secrets Manager client
+            session = boto3.session.Session()
+            client = session.client(
+                service_name="secretsmanager",
+                region_name=region_name
+            )
+
+            logger.info(f"Loading secrets from AWS Secrets Manager: {secret_name}")
+
+            # Get the secret value
+            response = client.get_secret_value(SecretId=secret_name)
+            secret_string = response["SecretString"]
+
+            # Parse the secret as YAML (same format as local secrets.yaml)
+            self._aws_secrets = yaml.safe_load(secret_string)
+            logger.info("Successfully loaded secrets from AWS Secrets Manager")
+
+        except ImportError:
+            logger.error("boto3 is not installed. Cannot load secrets from AWS Secrets Manager.")
+        except NoCredentialsError:
+            logger.error("AWS credentials not found. Cannot load secrets from AWS Secrets Manager.")
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            if error_code == "DecryptionFailureException":
+                logger.error("Secrets Manager can't decrypt the protected secret text using the provided KMS key.")
+            elif error_code == "InternalServiceErrorException":
+                logger.error("An error occurred on the server side.")
+            elif error_code == "InvalidParameterException":
+                logger.error("You provided an invalid value for a parameter.")
+            elif error_code == "InvalidRequestException":
+                logger.error("You provided a parameter value that is not valid for the current state of the resource.")
+            elif error_code == "ResourceNotFoundException":
+                logger.error(f"The requested secret {secret_name} was not found.")
+            else:
+                logger.error(f"Error loading secrets from AWS Secrets Manager: {e}")
+        except yaml.YAMLError:
+            logger.error("Failed to parse secrets from AWS Secrets Manager. Expected YAML format.")
+        except Exception as e:
+            logger.error(f"Unexpected error loading secrets from AWS Secrets Manager: {e}")
+
     def _load_secrets(self) -> None:
         """Load secrets from YAML file"""
         # Determine the secrets file path based on environment
@@ -104,13 +161,33 @@ class ConfigService:
     def get(self, key: str, default: Any = None) -> Any:
         """
         Get a configuration value by key.
-        First checks environment variables, then secrets file.
+        Priority order:
+        1. Environment variables
+        2. AWS Secrets Manager
+        3. Local secrets file
+        4. Default value
         """
         # Check if key exists in environment variables
         if key in self._config:
             return self._config[key]
 
-        # Check if key exists in secrets file (supports nested keys with dot notation)
+        # Check if key exists in AWS Secrets Manager (supports nested keys with dot notation)
+        if self._aws_secrets and "." in key:
+            parts = key.split(".")
+            value = self._aws_secrets
+            for part in parts:
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                else:
+                    break
+            else:
+                return value
+
+        # Check if key exists at top level of AWS secrets
+        if self._aws_secrets and key in self._aws_secrets:
+            return self._aws_secrets[key]
+
+        # Check if key exists in local secrets file (supports nested keys with dot notation)
         if "." in key:
             parts = key.split(".")
             value = self._secrets
@@ -121,7 +198,7 @@ class ConfigService:
                     return default
             return value
 
-        # Check if key exists at top level of secrets
+        # Check if key exists at top level of local secrets
         if key in self._secrets:
             return self._secrets[key]
 

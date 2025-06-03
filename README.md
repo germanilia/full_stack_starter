@@ -165,6 +165,7 @@ The backend uses two types of configuration files:
 2. **Secrets file** (sensitive information):
    - `secrets.yaml`: Contains all sensitive information like database credentials, AWS keys, etc.
    - Structure includes database credentials and AWS access keys
+   - **For production**: Use AWS Secrets Manager instead of local secrets file
 
 #### Frontend Configuration
 The frontend uses environment-specific files:
@@ -175,6 +176,54 @@ Key frontend environment variables:
 - `VITE_API_URL`: The URL of the backend API
 
 **Important**: All sensitive information should be stored in the backend's `secrets.yaml` file, not in any `.env` files.
+
+### AWS Secrets Manager Integration (Production)
+
+For production environments, the application supports loading secrets from AWS Secrets Manager instead of the local `secrets.yaml` file. This provides better security and centralized secret management.
+
+#### Setup AWS Secrets Manager
+
+1. **Create a secret in AWS Secrets Manager** with YAML content matching your `secrets.yaml`:
+   ```yaml
+   database:
+     username: "postgres"
+     password: "your_database_password"
+     host: "your-rds-endpoint.amazonaws.com"
+     port: 5432
+     name: "mydatabase"
+     url: "postgresql://postgres:password@your-rds-endpoint.amazonaws.com:5432/mydatabase"
+
+   security:
+     secret_key: "your_secret_key"
+     algorithm: "HS256"
+     access_token_expire_minutes: 30
+
+   aws:
+     access_key_id: "your_aws_access_key_id"
+     secret_access_key: "your_aws_secret_access_key"
+   ```
+
+2. **Configure environment variables** in your `.env.production`:
+   ```bash
+   AWS_SECRETS_MANAGER_SECRET_NAME=my-app-production-secrets
+   AWS_DEFAULT_REGION=us-east-1
+   ```
+
+3. **Ensure AWS credentials** are available through:
+   - IAM roles (recommended for EC2/ECS)
+   - Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+   - AWS credentials file
+   - Instance metadata service
+
+#### Fallback Behavior
+
+The configuration system follows this priority order:
+1. **Environment variables** (highest priority)
+2. **AWS Secrets Manager** (if configured)
+3. **Local secrets.yaml file** (fallback)
+4. **Default values** (lowest priority)
+
+If a secret is missing from AWS Secrets Manager, the system will automatically fall back to the local `secrets.yaml` file for that specific secret.
 
 ### Running with Docker
 

@@ -10,3 +10,4 @@ python-dotenv
 loguru
 pyyaml
 typer
+boto3

@@ -58,6 +58,41 @@ aws:
 
 A template file `secrets.example.yaml` is provided with placeholders.
 
+### AWS Secrets Manager (Production)
+
+For production environments, secrets can be loaded from AWS Secrets Manager instead of the local `secrets.yaml` file. This provides better security and centralized secret management.
+
+To enable AWS Secrets Manager:
+
+1. Set the `AWS_SECRETS_MANAGER_SECRET_NAME` environment variable in your `.env.production` file
+2. Optionally set `AWS_DEFAULT_REGION` (defaults to `us-east-1`)
+3. Ensure AWS credentials are available (IAM roles, environment variables, etc.)
+
+The secret in AWS Secrets Manager should be a JSON object with the same structure as the YAML file:
+
+```json
+{
+  "database": {
+    "username": "postgres",
+    "password": "your_password",
+    "host": "your-rds-endpoint.amazonaws.com",
+    "port": 5432,
+    "name": "mydatabase"
+  },
+  "security": {
+    "secret_key": "your_secret_key",
+    "algorithm": "HS256",
+    "access_token_expire_minutes": 30
+  },
+  "aws": {
+    "access_key_id": "your_aws_access_key_id",
+    "secret_access_key": "your_aws_secret_access_key"
+  }
+}
+```
+
+**Fallback behavior**: If AWS Secrets Manager is configured but a secret is missing or inaccessible, the system will fall back to the local `secrets.yaml` file for that specific secret.
+
 ### Configuration System
 
 The configuration system in `app/core/config_service.py` provides two ways to access configuration:

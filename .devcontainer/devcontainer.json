@@ -28,8 +28,10 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	"forwardPorts": [
 		8000,
+		9000,
 		3000,
-		5173
+		5173,
+		5432
 	],
 	// Configure networking for proper port forwarding
 	"runArgs": [
@@ -38,10 +40,16 @@
 	],
 	"mounts": [
         "source=${localEnv:HOME}/.ssh/germanilia,target=/tmp/host-germanilia-key,type=bind,consistency=cached",
-        "source=${localEnv:HOME}/.ssh/iliagerman,target=/tmp/host-iliagerman-key,type=bind,consistency=cached"
+        "source=${localEnv:HOME}/.ssh/iliagerman,target=/tmp/host-iliagerman-key,type=bind,consistency=cached",
+        // Add a bind mount for package cache to use host storage - only if directory exists
+        "source=${localWorkspaceFolder}/.devcontainer/apt-cache,target=/var/cache/apt,type=bind,consistency=cached"
     ],
 	// Use 'postCreateCommand' to run commands after the container is created.
-    "postCreateCommand": "echo 'host.docker.internal host-gateway' >> /etc/hosts && docker --version && sudo apt-get clean && sudo apt-get autoclean && sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /var/tmp/* && df -h && echo 'deb http://apt.postgresql.org/pub/repos/apt/ jammy-pgdg main' | sudo tee /etc/apt/sources.list.d/pgdg.list && sudo DEBIAN_FRONTEND=noninteractive apt-get update --allow-insecure-repositories || true && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --allow-unauthenticated curl wget gnupg && curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin && echo 'Installing PostgreSQL client and development libraries...' && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --allow-unauthenticated postgresql-client || true && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --allow-unauthenticated gcc g++ || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-unauthenticated gcc g++ && echo 'Installing Python packages...' && pip install --no-cache-dir -U pip && pip install --no-cache-dir fastapi uvicorn sqlalchemy alembic psycopg2-binary pydantic pydantic-settings && if [ -f 'backend/requirements.txt' ]; then pip install --no-cache-dir -r backend/requirements.txt; fi && echo 'Running client installation if available...' && if [ -d 'client' ]; then cd client && npm install --no-fund --no-audit --loglevel=error || true && cd ..; fi && git config --global user.email 'iliagerman@gmail.com' && git config --global user.name 'Ilia German'",
+    "postCreateCommand": "mkdir -p ${localWorkspaceFolder}/.devcontainer/apt-cache && echo 'host.docker.internal host-gateway' >> /etc/hosts && docker --version && sudo rm -rf /var/lib/apt/lists/* && df -h && sudo apt-get update --allow-insecure-repositories || true && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl wget && curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libpq-dev python3-dev gcc iputils-ping && pip install --no-cache-dir fastapi uvicorn sqlalchemy alembic psycopg2-binary pydantic pydantic-settings && if [ -f 'backend/requirements.txt' ]; then pip install --no-cache-dir -r backend/requirements.txt; fi && if [ -d 'client' ]; then cd client && npm install --no-fund --no-audit && cd ..; fi && git config --global user.email 'iliagerman@gmail.com' && git config --global user.name 'Ilia German'",
+	
+	// Create the apt-cache directory before starting the container
+	"initializeCommand": "mkdir -p ${localWorkspaceFolder}/.devcontainer/apt-cache",
+	
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {

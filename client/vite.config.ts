@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => {
     },
     watch: {
       usePolling: true, // This can help in containerized environments
+      interval: 1000, // Polling interval for better performance in containers
     }
   },
   build: {

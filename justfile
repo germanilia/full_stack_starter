@@ -52,3 +52,21 @@ ssh-status:
 
 git-test-connection:
     ssh -T git@github.com
+
+# Create SQS queues in LocalStack
+create_sqs:
+    awslocal sqs create-queue --queue-name new-content
+    awslocal sqs set-queue-attributes \
+        --queue-url http://0.0.0.0:4566/000000000000/process-message-queue \
+        --attributes '{ \
+            "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-1:000000000000:process-message-dead-letter-queue\",\"maxReceiveCount\":\"10\"}" \
+        }'
+    awslocal sqs set-queue-attributes \
+        --queue-url http://0.0.0.0:4566/000000000000/new-content \
+        --attributes '{ \
+            "VisibilityTimeout": "10" \
+        }'
+
+# Purge all SQS queues in LocalStack
+purge_sqs:
+    awslocal sqs purge-queue --queue-url http://0.0.0.0:4566/000000000000/new-content --region=us-east-1
