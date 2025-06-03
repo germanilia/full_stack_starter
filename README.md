@@ -99,7 +99,7 @@ A full-stack application with a FastAPI backend and React frontend, designed for
       "country": "Israel"
     },
     "wifi_details": {
-      "network_name": "Sweetinn_Guest",
+      "network_name": "Guest_WiFi",
       "password": "welcomeguest2023"
     },
     "available_services": [

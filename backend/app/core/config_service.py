@@ -9,6 +9,9 @@ from pathlib import Path
 import logging
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
+import boto3
+from botocore.exceptions import ClientError, NoCredentialsError
+
 
 logger = logging.getLogger(__name__)
 
@@ -88,14 +91,11 @@ class ConfigService:
             return
 
         try:
-            import boto3
-            from botocore.exceptions import ClientError, NoCredentialsError
-
             # Get AWS region from environment or use default
             region_name = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 
             # Create a Secrets Manager client
-            session = boto3.session.Session()
+            session = boto3.Session()
             client = session.client(
                 service_name="secretsmanager",
                 region_name=region_name
@@ -111,8 +111,6 @@ class ConfigService:
             self._aws_secrets = yaml.safe_load(secret_string)
             logger.info("Successfully loaded secrets from AWS Secrets Manager")
 
-        except ImportError:
-            logger.error("boto3 is not installed. Cannot load secrets from AWS Secrets Manager.")
         except NoCredentialsError:
             logger.error("AWS credentials not found. Cannot load secrets from AWS Secrets Manager.")
         except ClientError as e:
