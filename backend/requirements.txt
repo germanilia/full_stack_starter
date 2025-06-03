@@ -16,3 +16,6 @@ PyJWT
 requests
 passlib[bcrypt]
 python-multipart
+pytest
+pytest-asyncio
+httpx

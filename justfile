@@ -87,74 +87,130 @@ create_sqs:
 purge_sqs:
     awslocal sqs purge-queue --queue-url http://0.0.0.0:4566/000000000000/new-content --region=us-east-1
 
-# Create Cognito User Pool and Client in LocalStack (only if they don't exist)
+# Create Cognito User Pool and Client in AWS (only if they don't exist)
 create_cognito:
     #!/bin/bash
     set -e
 
-    USER_POOL_ID="us-east-1_myid123"
-    CLIENT_ID="myclient123"
-    POOL_NAME="MyAppUserPool"
+    # Change to backend directory to access configuration files
+    cd backend
 
-    echo "Checking if Cognito User Pool exists in LocalStack..."
+    # Load environment variables from .env file based on APP_ENV
+    APP_ENV=${APP_ENV:-development}
+    if [ -f ".env.$APP_ENV" ]; then
+        export $(grep -v '^#' .env.$APP_ENV | xargs)
+    fi
 
-    # Check if user pool exists
-    if awslocal cognito-idp describe-user-pool --user-pool-id "$USER_POOL_ID" >/dev/null 2>&1; then
+    # Load AWS credentials from secrets.yaml
+    if [ -f "secrets.yaml" ]; then
+        echo "Loading AWS credentials from secrets.yaml..."
+        export AWS_ACCESS_KEY_ID=$(python3 -c "import yaml; data=yaml.safe_load(open('secrets.yaml')); print(data['aws']['access_key_id'])")
+        export AWS_SECRET_ACCESS_KEY=$(python3 -c "import yaml; data=yaml.safe_load(open('secrets.yaml')); print(data['aws']['secret_access_key'])")
+        export AWS_DEFAULT_REGION=$(python3 -c "import yaml; data=yaml.safe_load(open('secrets.yaml')); print(data['aws']['region'])")
+        echo "✓ AWS credentials loaded successfully"
+    else
+        echo "Warning: secrets.yaml not found. Make sure AWS credentials are configured."
+    fi
+
+    # Use environment variables or defaults
+    POOL_NAME=${COGNITO_POOL_NAME:-"MyAppUserPool"}
+    CLIENT_NAME=${COGNITO_CLIENT_NAME:-"MyAppClient"}
+    REGION=${COGNITO_REGION:-"us-east-1"}
+
+    # Override AWS_DEFAULT_REGION with COGNITO_REGION if specified
+    if [ -n "$COGNITO_REGION" ]; then
+        export AWS_DEFAULT_REGION="$REGION"
+        echo "Using Cognito region: $REGION"
+    fi
+
+    echo "Checking if Cognito User Pool exists in AWS..."
+
+    # Try to find existing user pool by name
+    EXISTING_POOL=$(aws cognito-idp list-user-pools --max-items 60 --region $REGION --query "UserPools[?Name=='$POOL_NAME'].Id" --output text 2>/dev/null || echo "")
+
+    if [ -n "$EXISTING_POOL" ] && [ "$EXISTING_POOL" != "None" ]; then
+        USER_POOL_ID="$EXISTING_POOL"
         echo "✓ User Pool already exists (ID: $USER_POOL_ID)"
 
         # Check if client exists
-        if awslocal cognito-idp describe-user-pool-client --user-pool-id "$USER_POOL_ID" --client-id "$CLIENT_ID" >/dev/null 2>&1; then
+        EXISTING_CLIENT=$(aws cognito-idp list-user-pool-clients --user-pool-id "$USER_POOL_ID" --region $REGION --query "UserPoolClients[?ClientName=='$CLIENT_NAME'].ClientId" --output text 2>/dev/null || echo "")
+
+        if [ -n "$EXISTING_CLIENT" ] && [ "$EXISTING_CLIENT" != "None" ]; then
+            CLIENT_ID="$EXISTING_CLIENT"
             echo "✓ User Pool Client already exists (ID: $CLIENT_ID)"
             echo "Cognito resources are already set up!"
-            exit 0
         else
             echo "User Pool exists but Client is missing. Creating Client..."
-            # Create user pool client with predefined ID
-            awslocal cognito-idp create-user-pool-client \
+            # Create user pool client
+            CLIENT_RESPONSE=$(aws cognito-idp create-user-pool-client \
                 --user-pool-id "$USER_POOL_ID" \
-                --client-name "_custom_id_:$CLIENT_ID" \
-                --generate-secret \
-                --explicit-auth-flows "USER_PASSWORD_AUTH" "REFRESH_TOKEN_AUTH" \
-                --supported-identity-providers "COGNITO" \
-                --read-attributes "email" "name" \
-                --write-attributes "email" "name"
+                --client-name "$CLIENT_NAME" \
+                --explicit-auth-flows "ALLOW_USER_PASSWORD_AUTH" "ALLOW_REFRESH_TOKEN_AUTH" "ALLOW_USER_SRP_AUTH" \
+                --region $REGION \
+                --query "UserPoolClient.ClientId" \
+                --output text)
+            CLIENT_ID="$CLIENT_RESPONSE"
             echo "✓ User Pool Client created successfully!"
         fi
     else
         echo "User Pool doesn't exist. Creating User Pool and Client..."
 
-        # Create user pool with predefined ID
-        awslocal cognito-idp create-user-pool \
+        # Create user pool with auto-confirmation (no email verification)
+        USER_POOL_RESPONSE=$(aws cognito-idp create-user-pool \
             --pool-name "$POOL_NAME" \
-            --user-pool-tags "_custom_id_=$USER_POOL_ID" \
-            --policies '{"PasswordPolicy":{"MinimumLength":8,"RequireUppercase":true,"RequireLowercase":true,"RequireNumbers":true,"RequireSymbols":false}}' \
-            --auto-verified-attributes email \
+            --region $REGION \
+            --policies '{"PasswordPolicy":{"MinimumLength":8,"RequireUppercase":false,"RequireLowercase":false,"RequireNumbers":false,"RequireSymbols":false}}' \
             --username-attributes email \
-            --verification-message-template '{"DefaultEmailOption":"CONFIRM_WITH_CODE"}' \
-            --admin-create-user-config '{"AllowAdminCreateUserOnly":false}'
+            --admin-create-user-config '{"AllowAdminCreateUserOnly":false}' \
+            --query "UserPool.Id" \
+            --output text)
 
-        echo "✓ User Pool created successfully!"
+        USER_POOL_ID="$USER_POOL_RESPONSE"
+        echo "✓ User Pool created successfully! (ID: $USER_POOL_ID)"
 
-        # Create user pool client with predefined ID
-        awslocal cognito-idp create-user-pool-client \
+        # Create user pool client
+        CLIENT_RESPONSE=$(aws cognito-idp create-user-pool-client \
             --user-pool-id "$USER_POOL_ID" \
-            --client-name "_custom_id_:$CLIENT_ID" \
-            --generate-secret \
-            --explicit-auth-flows "USER_PASSWORD_AUTH" "REFRESH_TOKEN_AUTH" \
-            --supported-identity-providers "COGNITO" \
-            --read-attributes "email" "name" \
-            --write-attributes "email" "name"
+            --client-name "$CLIENT_NAME" \
+            --explicit-auth-flows "ALLOW_USER_PASSWORD_AUTH" "ALLOW_REFRESH_TOKEN_AUTH" "ALLOW_USER_SRP_AUTH" \
+            --region $REGION \
+            --query "UserPoolClient.ClientId" \
+            --output text)
 
+        CLIENT_ID="$CLIENT_RESPONSE"
         echo "✓ User Pool Client created successfully!"
     fi
 
     echo ""
-    echo "🎉 Cognito setup complete!"
+    echo "🎉 Cognito setup complete for environment: $APP_ENV"
+    echo "User Pool Name: $POOL_NAME"
     echo "User Pool ID: $USER_POOL_ID"
+    echo "Client Name: $CLIENT_NAME"
     echo "Client ID: $CLIENT_ID"
+    echo "Region: $REGION"
+    echo ""
+    echo "💡 Note: This User Pool has minimal password requirements and no email verification for development ease."
+    echo ""
+    echo "📝 Next steps:"
+    echo "1. Update your application configuration with these values"
+    echo "2. If using AWS Secrets Manager, add these to your secret"
+    echo "3. For local development, you can add these to your secrets.yaml file:"
+    echo ""
+    echo "cognito:"
+    echo "  user_pool_id: \"$USER_POOL_ID\""
+    echo "  client_id: \"$CLIENT_ID\""
+    echo "  region: \"$REGION\""
 
-# Setup LocalStack services (SQS + Cognito)
-setup_localstack:
+# Create Cognito for development environment
+create_cognito_dev:
+    APP_ENV=development just create_cognito
+
+# Create Cognito for production environment
+create_cognito_prod:
+    APP_ENV=production just create_cognito
+
+# Setup AWS services (LocalStack SQS + Real AWS Cognito)
+setup_aws_services:
     just create_sqs
     just create_cognito
 

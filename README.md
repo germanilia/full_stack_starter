@@ -115,17 +115,26 @@ just install
 cd client && npm install
 ```
 
-### 3. Set Up LocalStack (Development)
+### 3. Set Up AWS Cognito
 
-Start LocalStack and create Cognito resources:
+Create Cognito User Pool and Client on real AWS (no LocalStack needed):
 
 ```bash
-# Start LocalStack
-docker-compose up localstack -d
+# For development environment
+just create_cognito_dev
 
-# Create Cognito User Pool and Client
+# For production environment
+just create_cognito_prod
+
+# Or use the generic command (uses development by default)
 just create_cognito
 ```
+
+**Note**: This creates real AWS Cognito resources with minimal configuration for easy development. The User Pool will have:
+- Simple password requirements (8 characters minimum)
+- No email verification required
+- Auto-confirmation enabled
+- Email as username
 
 ### 4. Database Setup
 
@@ -400,6 +409,9 @@ Common environment variables:
 - `CORS_ORIGINS`: Comma-separated allowed CORS origins
 - `USE_LOCALSTACK`: Use LocalStack for AWS services (development)
 - `LOCALSTACK_ENDPOINT`: LocalStack endpoint URL
+- `COGNITO_REGION`: AWS region for Cognito (default: us-east-1)
+- `COGNITO_POOL_NAME`: Cognito User Pool name
+- `COGNITO_CLIENT_NAME`: Cognito User Pool Client name
 
 #### Secrets File (Sensitive Information)
 The `secrets.yaml` file contains all sensitive configuration:
@@ -426,12 +438,11 @@ aws:
   access_key_id: "your_aws_access_key_id"
   secret_access_key: "your_aws_secret_access_key"
 
-# Cognito configuration
+# Cognito configuration (add after running 'just create_cognito')
 cognito:
-  user_pool_id: "us-east-1_myid123"
-  client_id: "myclient123"
-  client_secret: "your_cognito_client_secret"
-  endpoint_url: "http://localhost:4566"  # For LocalStack only
+  user_pool_id: "us-east-1_XXXXXXXXX"  # From create_cognito output
+  client_id: "your_client_id"          # From create_cognito output
+  region: "us-east-1"                  # Should match COGNITO_REGION
 ```
 
 ### Frontend Configuration
@@ -470,9 +481,9 @@ For production environments, secrets can be loaded from AWS Secrets Manager inst
      secret_access_key: "your_aws_secret_access_key"
 
    cognito:
-     user_pool_id: "us-east-1_XXXXXXXXX"
-     client_id: "your_client_id"
-     client_secret: "your_client_secret"
+     user_pool_id: "us-east-1_XXXXXXXXX"  # From create_cognito output
+     client_id: "your_client_id"          # From create_cognito output
+     region: "us-east-1"                  # Should match COGNITO_REGION
    ```
 
 2. **Configure environment variables** in `.env.production`:
@@ -484,6 +495,71 @@ For production environments, secrets can be loaded from AWS Secrets Manager inst
 3. **Ensure AWS credentials** are available through IAM roles, environment variables, or AWS credentials file.
 
 **Fallback**: If AWS Secrets Manager is unavailable, the system falls back to the local `secrets.yaml` file.
+
+## AWS Cognito Setup
+
+The application uses AWS Cognito for authentication. Cognito resources are created using the justfile commands and configured via environment variables.
+
+### Cognito Configuration
+
+Cognito settings are managed through environment variables in `.env.development` and `.env.production`:
+
+```bash
+# Development environment (.env.development)
+COGNITO_REGION=us-east-1
+COGNITO_POOL_NAME=MyAppUserPool-Dev
+COGNITO_CLIENT_NAME=MyAppClient-Dev
+
+# Production environment (.env.production)
+COGNITO_REGION=us-east-1
+COGNITO_POOL_NAME=MyAppUserPool-Prod
+COGNITO_CLIENT_NAME=MyAppClient-Prod
+```
+
+### Creating Cognito Resources
+
+Use the justfile commands to create Cognito User Pools and Clients:
+
+```bash
+# Create for development
+just create_cognito_dev
+
+# Create for production
+just create_cognito_prod
+
+# Create for current environment (based on APP_ENV)
+just create_cognito
+```
+
+### After Creation
+
+After running the create_cognito command, you'll get output like:
+
+```
+🎉 Cognito setup complete for environment: development
+User Pool Name: MyAppUserPool-Dev
+User Pool ID: us-east-1_ABC123DEF
+Client Name: MyAppClient-Dev
+Client ID: 1a2b3c4d5e6f7g8h9i0j
+Region: us-east-1
+```
+
+Add these values to your `secrets.yaml` file:
+
+```yaml
+cognito:
+  user_pool_id: "us-east-1_ABC123DEF"
+  client_id: "1a2b3c4d5e6f7g8h9i0j"
+  region: "us-east-1"
+```
+
+### Cognito Features
+
+The created User Pools have these characteristics:
+- **Simple passwords**: 8 characters minimum, no complexity requirements
+- **Email usernames**: Users sign in with their email address
+- **No email verification**: Users are auto-confirmed (development-friendly)
+- **Multiple auth flows**: Supports password auth, SRP auth, and refresh tokens
 
 ## Authentication System
 
@@ -505,9 +581,34 @@ Since Cognito has issues with @ symbols in usernames, the system automatically t
 - **Storage**: `user@domain.com` → `user_domain.com` (in Cognito)
 - **Display**: `user_domain.com` → `user@domain.com` (to users)
 
-### User Roles
-- **Admin**: First user to register automatically becomes admin
-- **User**: All subsequent users get user role by default
+### User Roles and Admin System
+
+The application implements an automatic admin assignment system:
+
+#### Admin Role Assignment
+- **First User**: The very first user to register automatically becomes an admin
+- **Subsequent Users**: All users after the first become regular users by default
+- **Database Check**: The system checks the user count in the database before creating each user
+- **Automatic Assignment**: No manual intervention required - the first user is automatically promoted
+
+#### Role Capabilities
+- **Admin Role (`admin`)**:
+  - Full access to all application features
+  - Can manage other users (future feature)
+  - Access to admin-only endpoints
+  - Automatically assigned to the first user
+
+- **User Role (`user`)**:
+  - Standard application access
+  - Cannot access admin-only features
+  - Default role for all users after the first
+
+#### Implementation Details
+The admin assignment logic is implemented in multiple layers:
+- **UserDAO**: Checks user count and assigns admin role if count is 0
+- **UserService**: Inherits the same logic through DAO
+- **Authentication Flow**: Works during both signup and signin processes
+- **Database Persistence**: Role is stored in the database and persists across sessions
 
 ### Dual Authentication System
 
