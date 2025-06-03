@@ -70,3 +70,41 @@ create_sqs:
 # Purge all SQS queues in LocalStack
 purge_sqs:
     awslocal sqs purge-queue --queue-url http://0.0.0.0:4566/000000000000/new-content --region=us-east-1
+
+# Create Cognito User Pool and Client in LocalStack
+create_cognito:
+    #!/bin/bash
+    echo "Creating Cognito User Pool in LocalStack..."
+
+    # Create user pool with predefined ID
+    awslocal cognito-idp create-user-pool \
+        --pool-name "MyAppUserPool" \
+        --user-pool-tags "_custom_id_=us-east-1_myid123" \
+        --policies '{"PasswordPolicy":{"MinimumLength":8,"RequireUppercase":true,"RequireLowercase":true,"RequireNumbers":true,"RequireSymbols":false}}' \
+        --auto-verified-attributes email \
+        --username-attributes email \
+        --verification-message-template '{"DefaultEmailOption":"CONFIRM_WITH_CODE"}' \
+        --admin-create-user-config '{"AllowAdminCreateUserOnly":false}'
+
+    # Create user pool client with predefined ID
+    awslocal cognito-idp create-user-pool-client \
+        --user-pool-id "us-east-1_myid123" \
+        --client-name "_custom_id_:myclient123" \
+        --generate-secret \
+        --explicit-auth-flows "USER_PASSWORD_AUTH" "REFRESH_TOKEN_AUTH" \
+        --supported-identity-providers "COGNITO" \
+        --read-attributes "email" "name" \
+        --write-attributes "email" "name"
+
+    echo "Cognito User Pool and Client created successfully!"
+    echo "User Pool ID: us-east-1_myid123"
+    echo "Client ID: myclient123"
+
+# Setup LocalStack services (SQS + Cognito)
+setup_localstack:
+    just create_sqs
+    just create_cognito
+
+# Generate migration for Cognito fields
+generate_cognito_migration:
+    cd backend && python -m app.db.generate_cognito_migration

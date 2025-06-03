@@ -1,6 +1,6 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from app.models.user import User
+from app.models.user import User, UserRole
 
 
 class UserCRUD:
@@ -26,6 +26,13 @@ class UserCRUD:
         return db.query(User).filter(User.username == username).first()
 
     @staticmethod
+    def get_user_by_cognito_sub(db: Session, cognito_sub: str) -> Optional[User]:
+        """
+        Get a user by Cognito sub (user ID).
+        """
+        return db.query(User).filter(User.cognito_sub == cognito_sub).first()
+
+    @staticmethod
     def get_users(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
         """
         Get a list of users with pagination.
@@ -33,15 +40,40 @@ class UserCRUD:
         return db.query(User).offset(skip).limit(limit).all()
 
     @staticmethod
-    def create_user(db: Session, username: str, email: str, full_name: Optional[str] = None) -> User:
+    def create_user(
+        db: Session,
+        username: str,
+        email: str,
+        full_name: Optional[str] = None,
+        role: UserRole = UserRole.USER,
+        cognito_sub: Optional[str] = None
+    ) -> User:
         """
         Create a new user.
         """
-        user = User(username=username, email=email, full_name=full_name)
+        # Check if this is the first user (make them admin)
+        user_count = db.query(User).count()
+        if user_count == 0:
+            role = UserRole.ADMIN
+
+        user = User(
+            username=username,
+            email=email,
+            full_name=full_name,
+            role=role,
+            cognito_sub=cognito_sub
+        )
         db.add(user)
         db.commit()
         db.refresh(user)
         return user
+
+    @staticmethod
+    def get_user_count(db: Session) -> int:
+        """
+        Get the total number of users.
+        """
+        return db.query(User).count()
 
     @staticmethod
     def update_user(db: Session, user_id: int, **kwargs) -> Optional[User]:

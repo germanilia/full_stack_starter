@@ -2,6 +2,28 @@
 
 A full-stack application with a FastAPI backend and React frontend, designed for handling apartment management and customer service through a chatbot interface.
 
+## Tech Stack
+
+### Backend
+- **FastAPI**: Modern Python web framework for building APIs
+- **PostgreSQL**: Persistent data storage with Alembic migrations
+- **AWS Cognito**: Authentication and user management
+- **AWS Secrets Manager**: Secure secrets management for production
+- **LocalStack**: Local AWS services simulation for development
+
+### Frontend
+- **React**: Modern UI library with TypeScript
+- **Vite**: Fast build tool and development server
+- **Shadcn/UI**: Modern, accessible UI components
+- **TailwindCSS**: Utility-first CSS framework
+- **React Router**: Client-side routing
+
+### DevOps & Tools
+- **Docker**: Containerized development and deployment
+- **Just**: Command runner for development tasks
+- **Alembic**: Database migration management
+- **VSCode**: Integrated development environment with devcontainer support
+
 ## Project Structure
 
 ```
@@ -10,27 +32,43 @@ A full-stack application with a FastAPI backend and React frontend, designed for
 │   ├── app/                # Main application code
 │   │   ├── core/           # Configuration and settings
 │   │   ├── crud/           # Database operations
-│   │   ├── db/             # Database connections
-│   │   ├── models/         # SQL Alchemy models
-│   │   └── routers/        # API endpoints
+│   │   ├── db/             # Database connections and setup
+│   │   ├── models/         # SQLAlchemy models
+│   │   ├── routers/        # API endpoints
+│   │   └── dependencies.py # Authentication dependencies
 │   ├── alembic/            # Database migrations
+│   ├── secrets.example.yaml # Template for secrets configuration
 │   └── Dockerfile          # Backend container setup
 ├── client/                 # React frontend
 │   ├── public/             # Static assets
 │   ├── src/                # React application code
-│   │   └── components/     # UI components (including shadcn/ui)
+│   │   ├── components/     # UI components (including shadcn/ui)
+│   │   ├── contexts/       # React contexts (auth, etc.)
+│   │   ├── lib/            # Utility functions and services
+│   │   └── pages/          # Page components
+│   ├── .env.development.example # Frontend environment template
+│   ├── .env.production.example  # Production environment template
 │   └── Dockerfile          # Frontend container setup
-└── docker-compose.yml      # Multi-container setup
+├── docker-compose.yml      # Multi-container setup
+├── justfile               # Development commands
+└── .devcontainer/         # VSCode devcontainer configuration
 ```
 
 ## Features
 
-- **FastAPI Backend**: Modern Python web framework for building APIs
-- **React Frontend**: UI built with React
-- **PostgreSQL Database**: Persistent data storage
-- **Containerized**: Docker setup for consistent development and deployment
-- **Shadcn/UI Components**: Modern UI components for the frontend
-- **TailwindCSS**: Utility-first CSS framework
+- **Authentication System**: Complete user authentication with AWS Cognito
+  - Email-based usernames with automatic transformation
+  - Role-based access control (Admin/User roles)
+  - JWT token management with automatic refresh
+  - LocalStack integration for development
+- **Configuration Management**: Flexible configuration system
+  - Environment-specific settings
+  - AWS Secrets Manager integration for production
+  - Local secrets file fallback
+- **Database Management**: PostgreSQL with Alembic migrations
+- **Modern Frontend**: React with TypeScript, Vite, and Shadcn/UI
+- **Containerized Development**: Docker setup for consistent environments
+- **Development Tools**: Just commands, VSCode integration, devcontainer support
 
 ## API Objects
 
@@ -130,60 +168,151 @@ A full-stack application with a FastAPI backend and React frontend, designed for
      - A direct answer to the user's query
      - A request for additional information needed to fulfill the request
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
+- **Docker and Docker Compose**: For containerized development
+- **Node.js 18+**: For frontend development
+- **Python 3.9+**: For backend development
+- **Just**: Command runner (install with `cargo install just` or package manager)
+- **AWS CLI**: For production deployment (optional)
 
-- Docker and Docker Compose
-- Node.js (for local development)
-- Python 3.9+ (for local development)
+## Quick Start
 
-### Environment Setup
+### 1. Environment Setup
 
-1. Copy the secrets file and frontend environment files:
-   ```bash
-   # Backend secrets (contains sensitive information)
-   cp backend/secrets.example.yaml backend/secrets.yaml
+Copy the configuration templates and update them with your settings:
 
-   # Frontend configuration (contains non-sensitive information)
-   cp client/.env.development.example client/.env.development
-   cp client/.env.production.example client/.env.production
-   ```
+```bash
+# Backend secrets (contains sensitive information)
+cp backend/secrets.example.yaml backend/secrets.yaml
 
-   Note: Backend environment files (.env.development, .env.production, .env.testing) are included in source control and don't need to be copied.
+# Frontend configuration (contains non-sensitive information)
+cp client/.env.development.example client/.env.development
+cp client/.env.production.example client/.env.production
+```
 
-2. Edit the environment files and secrets file with your configuration
+**Note**: Backend environment files (`.env.development`, `.env.production`, `.env.testing`) are included in source control and don't need to be copied.
 
-#### Backend Configuration
-The backend uses two types of configuration files:
+### 2. Install Dependencies
 
-1. **Environment-specific files** (non-sensitive configuration):
-   - `.env.development`: Development environment settings
-   - `.env.production`: Production environment settings
-   - `.env.testing`: Testing environment settings
+```bash
+# Install backend dependencies
+just install
 
-2. **Secrets file** (sensitive information):
-   - `secrets.yaml`: Contains all sensitive information like database credentials, AWS keys, etc.
-   - Structure includes database credentials and AWS access keys
-   - **For production**: Use AWS Secrets Manager instead of local secrets file
+# Install frontend dependencies
+cd client && npm install
+```
 
-#### Frontend Configuration
+### 3. Set Up LocalStack (Development)
+
+Start LocalStack and create Cognito resources:
+
+```bash
+# Start LocalStack
+docker-compose up localstack -d
+
+# Create Cognito User Pool and Client
+just create_cognito
+```
+
+### 4. Database Setup
+
+```bash
+# Generate and apply database migrations
+just generate_migration "Initial setup"
+just migrate
+```
+
+### 5. Start Development Servers
+
+```bash
+# Start both backend and frontend
+just run
+
+# Or start individually:
+just run-backend  # Backend only
+just run-client   # Frontend only
+```
+
+The application will be available at:
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+
+## Configuration System
+
+The application uses a flexible configuration system that loads settings from multiple sources with the following priority:
+
+1. **Environment variables** (highest priority)
+2. **AWS Secrets Manager** (if configured)
+3. **Local secrets.yaml file** (fallback)
+4. **Default values** (lowest priority)
+
+### Backend Configuration
+
+#### Environment Files (Non-sensitive)
+- `.env.development`: Development environment settings
+- `.env.production`: Production environment settings
+- `.env.testing`: Testing environment settings
+
+Common environment variables:
+- `APP_ENV`: Environment (development, production, testing)
+- `DEBUG`: Enable debug mode
+- `PORT`: Server port (default: 8000)
+- `HOST`: Server host (default: 0.0.0.0)
+- `CORS_ORIGINS`: Comma-separated allowed CORS origins
+- `USE_LOCALSTACK`: Use LocalStack for AWS services (development)
+- `LOCALSTACK_ENDPOINT`: LocalStack endpoint URL
+
+#### Secrets File (Sensitive Information)
+The `secrets.yaml` file contains all sensitive configuration:
+
+```yaml
+# Database credentials
+database:
+  username: "postgres"
+  password: "your_password"
+  host: "localhost"
+  port: 5432
+  name: "mydatabase"
+  url: "postgresql://postgres:your_password@localhost:5432/mydatabase"
+
+# Security settings
+security:
+  secret_key: "your_secret_key"
+  algorithm: "HS256"
+  access_token_expire_minutes: 30
+
+# AWS credentials
+aws:
+  region: "us-east-1"
+  access_key_id: "your_aws_access_key_id"
+  secret_access_key: "your_aws_secret_access_key"
+
+# Cognito configuration
+cognito:
+  user_pool_id: "us-east-1_myid123"
+  client_id: "myclient123"
+  client_secret: "your_cognito_client_secret"
+  endpoint_url: "http://localhost:4566"  # For LocalStack only
+```
+
+### Frontend Configuration
+
 The frontend uses environment-specific files:
-- `.env.development`: Used during development (`npm run dev`)
-- `.env.production`: Used for production builds (`npm run build`)
+- `.env.development`: Development settings
+- `.env.production`: Production settings
 
-Key frontend environment variables:
-- `VITE_API_URL`: The URL of the backend API
-
-**Important**: All sensitive information should be stored in the backend's `secrets.yaml` file, not in any `.env` files.
+Key variables:
+- `VITE_API_URL`: Backend API URL (e.g., http://localhost:8000)
 
 ### AWS Secrets Manager Integration (Production)
 
-For production environments, the application supports loading secrets from AWS Secrets Manager instead of the local `secrets.yaml` file. This provides better security and centralized secret management.
+For production environments, secrets can be loaded from AWS Secrets Manager instead of the local `secrets.yaml` file.
 
 #### Setup AWS Secrets Manager
 
-1. **Create a secret in AWS Secrets Manager** with YAML content matching your `secrets.yaml`:
+1. **Create a secret in AWS Secrets Manager** with YAML content:
    ```yaml
    database:
      username: "postgres"
@@ -191,7 +320,6 @@ For production environments, the application supports loading secrets from AWS S
      host: "your-rds-endpoint.amazonaws.com"
      port: 5432
      name: "mydatabase"
-     url: "postgresql://postgres:password@your-rds-endpoint.amazonaws.com:5432/mydatabase"
 
    security:
      secret_key: "your_secret_key"
@@ -201,71 +329,282 @@ For production environments, the application supports loading secrets from AWS S
    aws:
      access_key_id: "your_aws_access_key_id"
      secret_access_key: "your_aws_secret_access_key"
+
+   cognito:
+     user_pool_id: "us-east-1_XXXXXXXXX"
+     client_id: "your_client_id"
+     client_secret: "your_client_secret"
    ```
 
-2. **Configure environment variables** in your `.env.production`:
+2. **Configure environment variables** in `.env.production`:
    ```bash
    AWS_SECRETS_MANAGER_SECRET_NAME=my-app-production-secrets
    AWS_DEFAULT_REGION=us-east-1
    ```
 
-3. **Ensure AWS credentials** are available through:
-   - IAM roles (recommended for EC2/ECS)
-   - Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
-   - AWS credentials file
-   - Instance metadata service
+3. **Ensure AWS credentials** are available through IAM roles, environment variables, or AWS credentials file.
 
-#### Fallback Behavior
+**Fallback**: If AWS Secrets Manager is unavailable, the system falls back to the local `secrets.yaml` file.
 
-The configuration system follows this priority order:
-1. **Environment variables** (highest priority)
-2. **AWS Secrets Manager** (if configured)
-3. **Local secrets.yaml file** (fallback)
-4. **Default values** (lowest priority)
+## Authentication System
 
-If a secret is missing from AWS Secrets Manager, the system will automatically fall back to the local `secrets.yaml` file for that specific secret.
+The application includes a complete authentication system using AWS Cognito with the following features:
 
-### Running with Docker
+### Features
+- **Email-based usernames** with automatic transformation for Cognito compatibility
+- **Role-based access control** (Admin/User roles)
+- **JWT token management** with automatic refresh
+- **LocalStack integration** for development
+- **Protected routes** in both frontend and backend
 
-```bash
-docker-compose up
+### Email-to-Username Transformation
+
+Since Cognito has issues with @ symbols in usernames, the system automatically transforms emails:
+- **Storage**: `user@domain.com` → `user_domain.com` (in Cognito)
+- **Display**: `user_domain.com` → `user@domain.com` (to users)
+
+### User Roles
+- **Admin**: First user to register automatically becomes admin
+- **User**: All subsequent users get user role by default
+
+### Authentication Flow
+
+1. **Registration**: User registers with email and password
+2. **Confirmation**: User confirms email with verification code
+3. **Login**: User signs in with email and password
+4. **Token Management**: JWT tokens are automatically refreshed
+5. **Role Assignment**: First user becomes admin, others become users
+
+### API Endpoints
+
+#### Authentication Endpoints
+- `POST /api/v1/auth/signup` - Register new user
+- `POST /api/v1/auth/confirm-signup` - Confirm registration with verification code
+- `POST /api/v1/auth/signin` - Sign in user
+- `POST /api/v1/auth/refresh-token` - Refresh access token
+- `GET /api/v1/auth/me` - Get current user info
+- `POST /api/v1/auth/signout` - Sign out user
+
+#### Example API Usage
+
+**Registration:**
+```json
+POST /api/v1/auth/signup
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "full_name": "John Doe"
+}
 ```
 
-### Development Commands
+**Login:**
+```json
+POST /api/v1/auth/signin
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!"
+}
+```
 
-Using the `just` command runner:
+**Protected Endpoint Usage:**
+```python
+from app.dependencies import get_current_active_user, get_current_admin_user
+
+# Require any authenticated user
+@app.get("/protected")
+async def protected_endpoint(current_user: User = Depends(get_current_active_user)):
+    return {"message": "Hello authenticated user"}
+
+# Require admin user
+@app.get("/admin-only")
+async def admin_endpoint(current_user: User = Depends(get_current_admin_user)):
+    return {"message": "Hello admin"}
+```
+
+## Development Commands
+
+### Using Just (Recommended)
 
 ```bash
-# Install backend dependencies
+# Install dependencies
 just install
 
-# Run the backend server
-just run-backend
+# Development servers
+just run              # Start both backend and frontend
+just run-backend      # Backend only
+just run-client       # Frontend only
 
-# Run the frontend server
-just run-client
+# Database operations
+just generate_migration "migration message"
+just migrate          # Apply migrations
 
-# Run both servers
-just run
+# LocalStack setup
+just create_cognito   # Create Cognito resources
+just setup_localstack # Setup all LocalStack services
 
-# Generate a new database migration
-just migrate-generate "migration message"
-
-# Run database migrations
-just migrate-run
+# Testing
+just test             # Run tests
 ```
+
+### Manual Commands
+
+#### Backend
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+#### Frontend
+```bash
+cd client
+npm install
+npm run dev
+```
+
+### Docker Development
+
+```bash
+# Start all services
+docker-compose up
+
+# Start specific services
+docker-compose up backend frontend postgres
+docker-compose up localstack  # For AWS services simulation
+```
+
+## Frontend Development
+
+### Project Structure
+- `src/components/`: React components including Shadcn/UI components
+- `src/contexts/`: React contexts for state management (AuthContext)
+- `src/lib/`: Utility functions and services (API client, config)
+- `src/pages/`: Page components for routing
+
+### Key Components
+- **AuthContext**: Manages authentication state and token handling
+- **ProtectedRoute**: Wrapper for route protection
+- **LoginForm/RegisterForm**: Authentication forms
+- **API Client**: Centralized API communication
+
+### Adding Environment Variables
+1. Add variable to appropriate `.env` files
+2. Add type to `src/vite-env.d.ts`
+3. Add to `AppConfig` interface in `src/lib/config.ts`
+4. Add getter function in `config.ts`
+
+## Testing
+
+### Backend Testing
+```bash
+cd backend
+pytest                    # Run all tests
+pytest tests/test_auth.py # Run specific test file
+pytest -v                # Verbose output
+```
+
+### Frontend Testing
+```bash
+cd client
+npm test                 # Run tests
+npm run test:coverage    # Run with coverage
+```
+
+### Integration Testing
+Test the complete authentication flow:
+1. Register new user → Confirm email → Login
+2. Test role assignment (first user = admin)
+3. Test protected routes and API endpoints
+4. Test token refresh functionality
+
+## Troubleshooting
+
+### Common Issues
+
+**Authentication Errors:**
+- "Authentication required": Token expired → Sign out and sign in again
+- "User not found": User exists in Cognito but not in database → Sign in again
+- "Invalid token": Check JWT token validity and expiration
+
+**LocalStack Issues:**
+- "Failed to fetch JWKS": Ensure LocalStack is running and Cognito is set up
+- Check LocalStack logs: `docker logs localstack`
+- Confirmation codes appear in LocalStack logs during development
+
+**CORS Errors:**
+- Update `CORS_ORIGINS` in backend environment files
+- Ensure frontend URL is included in allowed origins
+
+**Database Issues:**
+- Connection failed: Check database credentials in `secrets.yaml`
+- Migration errors: Ensure database exists and is accessible
+
+### Debug Mode
+
+Enable debug logging:
+```bash
+# Backend
+LOG_LEVEL=DEBUG
+
+# Frontend (development builds include console.log statements)
+npm run dev
+```
+
+## Production Deployment
+
+### Backend Deployment
+1. **Set up AWS Secrets Manager** with production secrets
+2. **Configure environment variables**:
+   ```bash
+   APP_ENV=production
+   USE_LOCALSTACK=False
+   AWS_SECRETS_MANAGER_SECRET_NAME=my-app-production-secrets
+   ```
+3. **Set up real AWS Cognito** User Pool and Client
+4. **Configure database** (RDS recommended)
+5. **Set up CORS** for production domain
+
+### Frontend Deployment
+1. **Update environment variables** in `.env.production`
+2. **Build for production**: `npm run build`
+3. **Deploy static files** to CDN/hosting service
+4. **Configure routing** for SPA (single-page application)
+
+### Security Considerations
+- Use HTTPS in production
+- Store secrets in AWS Secrets Manager
+- Configure proper CORS origins
+- Set appropriate token expiration times
+- Monitor authentication logs
+- Use IAM roles for AWS service access
 
 ## VSCode Integration
 
-This project includes VSCode configurations for:
-- Debugging the backend and frontend
-- Running both servers simultaneously
-- Code formatting and linting
+### Features
+- **Debugging**: Backend and frontend debugging configurations
+- **Development Container**: Pre-configured development environment
+- **Code Formatting**: ESLint, Prettier, Black configurations
+- **Extensions**: Recommended extensions for Python, TypeScript, React
 
-## Development Container
+### Development Container Setup
+1. Install [Remote - Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
+2. Open project in VSCode
+3. Click green button in lower left → "Reopen in Container"
+4. Container includes all necessary tools pre-installed
 
-A development container is provided with all necessary tools pre-installed. To use it:
+## Contributing
 
-1. Install the [Remote - Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
-2. Open the project in VSCode
-3. Click on the green button in the lower left corner and select "Reopen in Container"
+1. **Fork the repository**
+2. **Create feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make changes** following the coding standards
+4. **Write tests** for new functionality
+5. **Run tests** to ensure everything works
+6. **Commit changes**: `git commit -m 'Add amazing feature'`
+7. **Push to branch**: `git push origin feature/amazing-feature`
+8. **Open Pull Request**
+
+### Coding Standards
+- **Backend**: Follow PEP 8, use type hints, write docstrings
+- **Frontend**: Use TypeScript, follow ESLint rules, use Prettier
+- **Testing**: Write tests for new features and bug fixes
+- **Documentation**: Update README and inline documentation

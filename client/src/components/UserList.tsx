@@ -7,6 +7,8 @@ interface User {
   email: string;
   full_name: string | null;
   is_active: boolean;
+  role: string;
+  cognito_sub: string | null;
 }
 
 export default function UserList() {
@@ -40,21 +42,37 @@ export default function UserList() {
   }
 
   return (
-    <div className="max-w-md mx-auto">
+    <div className="w-full">
       <h2 className="text-xl font-bold mb-4">Users</h2>
       <div className="space-y-4">
         {users.map((user) => (
-          <div 
+          <div
             key={user.id}
-            className="border p-4 rounded-md shadow-sm hover:shadow-md transition"
+            className="border p-4 rounded-md shadow-sm hover:shadow-md transition bg-white"
           >
-            <h3 className="font-bold">{user.full_name || user.username}</h3>
-            <p className="text-gray-600">{user.email}</p>
-            <p className="text-sm mt-2">
-              Status: <span className={user.is_active ? "text-green-500" : "text-red-500"}>
-                {user.is_active ? "Active" : "Inactive"}
-              </span>
-            </p>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <h3 className="font-bold">{user.full_name || user.username}</h3>
+                <p className="text-gray-600">{user.email}</p>
+                <div className="flex items-center gap-4 mt-2">
+                  <span className="text-sm">
+                    Status: <span className={user.is_active ? "text-green-500" : "text-red-500"}>
+                      {user.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </span>
+                  <span className="text-sm">
+                    Role: <span className="capitalize font-medium text-blue-600">
+                      {user.role}
+                    </span>
+                  </span>
+                </div>
+              </div>
+              {user.role === 'admin' && (
+                <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
+                  Admin
+                </span>
+              )}
+            </div>
           </div>
         ))}
       </div>

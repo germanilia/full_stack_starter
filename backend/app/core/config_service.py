@@ -238,8 +238,23 @@ class ConfigService:
         """Get AWS credentials from secrets"""
         return {
             "access_key_id": self.get("aws.access_key_id", ""),
-            "secret_access_key": self.get("aws.secret_access_key", "")
+            "secret_access_key": self.get("aws.secret_access_key", ""),
+            "region": self.get("aws.region", "us-east-1")
         }
+
+    def get_cognito_config(self) -> Dict[str, str]:
+        """Get Cognito configuration from secrets"""
+        return {
+            "user_pool_id": self.get("cognito.user_pool_id", ""),
+            "client_id": self.get("cognito.client_id", ""),
+            "client_secret": self.get("cognito.client_secret", ""),
+            "endpoint_url": self.get("cognito.endpoint_url", ""),
+            "region": self.get("aws.region", "us-east-1")
+        }
+
+    def is_localstack_enabled(self) -> bool:
+        """Check if LocalStack is enabled for development"""
+        return self.get("use_localstack", False)
 
     def is_development(self) -> bool:
         """Check if the application is running in development mode"""

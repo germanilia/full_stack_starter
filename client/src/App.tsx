@@ -1,25 +1,61 @@
-import { useEffect } from 'react';
-import UserList from "@/components/UserList";
-import StatusComponent from "@/components/StatusComponent";
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { RegisterForm } from '@/components/auth/RegisterForm';
+import { ConfirmSignUpForm } from '@/components/auth/ConfirmSignUpForm';
+import { Dashboard } from '@/components/Dashboard';
 
 function App() {
-  useEffect(() => {
-    console.log('App component mounted');
-    document.title = 'My Boilerplate App - Loaded';
-  }, []);
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-svh p-6">
-      <header className="App-header mb-8 text-center">
-        <h1 className="text-3xl font-bold mb-4">Welcome to My Boilerplate App</h1>
-        <p className="text-lg mb-6">This is a basic setup using FastAPI for the backend and Vite+React for the frontend.</p>
-        <StatusComponent />
-      </header>
-      
-      <main className="w-full max-w-2xl">
-        <UserList />
-      </main>
-    </div>
+    <AuthProvider>
+      <Router>
+        <div className="min-h-screen bg-gray-50">
+          <Routes>
+            {/* Public routes (redirect to dashboard if authenticated) */}
+            <Route
+              path="/login"
+              element={
+                <ProtectedRoute requireAuth={false}>
+                  <LoginForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <ProtectedRoute requireAuth={false}>
+                  <RegisterForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/confirm-signup"
+              element={
+                <ProtectedRoute requireAuth={false}>
+                  <ConfirmSignUpForm />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Protected routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Default redirects */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 
