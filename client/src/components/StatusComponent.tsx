@@ -24,14 +24,14 @@ export default function StatusComponent() {
   }, []);
 
   return (
-    <div className="mb-6 p-4 border rounded-md">
-      <h2 className="text-lg font-medium mb-2">API Status</h2>
+    <div className="mb-6 p-4 border border-border rounded-md">
+      <h2 className="text-lg font-medium mb-2 text-foreground">API Status</h2>
       {loading ? (
-        <p>Checking connection...</p>
+        <p className="text-muted-foreground">Checking connection...</p>
       ) : error ? (
-        <p className="text-red-500">{error}</p>
+        <p className="text-destructive">{error}</p>
       ) : (
-        <p className="text-green-500">Backend API is {status}</p>
+        <p className="text-green-600 dark:text-green-400">Backend API is {status}</p>
       )}
     </div>
   );

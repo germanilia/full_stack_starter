@@ -28,10 +28,8 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	"forwardPorts": [
 		8000,
-		9000,
 		3000,
-		5173,
-		5432
+		5173
 	],
 	// Configure networking for proper port forwarding
 	"runArgs": [
@@ -40,16 +38,10 @@
 	],
 	"mounts": [
         "source=${localEnv:HOME}/.ssh/germanilia,target=/tmp/host-germanilia-key,type=bind,consistency=cached",
-        "source=${localEnv:HOME}/.ssh/iliagerman,target=/tmp/host-iliagerman-key,type=bind,consistency=cached",
-        // Add a bind mount for package cache to use host storage - only if directory exists
-        "source=${localWorkspaceFolder}/.devcontainer/apt-cache,target=/var/cache/apt,type=bind,consistency=cached"
+        "source=${localEnv:HOME}/.ssh/iliagerman,target=/tmp/host-iliagerman-key,type=bind,consistency=cached"
     ],
 	// Use 'postCreateCommand' to run commands after the container is created.
-    "postCreateCommand": "mkdir -p ${localWorkspaceFolder}/.devcontainer/apt-cache && echo 'host.docker.internal host-gateway' >> /etc/hosts && docker --version && sudo rm -rf /var/lib/apt/lists/* && df -h && sudo apt-get update --allow-insecure-repositories || true && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl wget && curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libpq-dev python3-dev gcc iputils-ping && pip install --no-cache-dir fastapi uvicorn sqlalchemy alembic psycopg2-binary pydantic pydantic-settings && if [ -f 'backend/requirements.txt' ]; then pip install --no-cache-dir -r backend/requirements.txt; fi && if [ -d 'client' ]; then cd client && npm install --no-fund --no-audit && cd ..; fi && git config --global user.email 'iliagerman@gmail.com' && git config --global user.name 'Ilia German'",
-	
-	// Create the apt-cache directory before starting the container
-	"initializeCommand": "mkdir -p ${localWorkspaceFolder}/.devcontainer/apt-cache",
-	
+    "postCreateCommand": "echo 'host.docker.internal host-gateway' >> /etc/hosts && docker --version && sudo apt-get update && (curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin) && sudo apt-get install -y libpq-dev python3-dev gcc iputils-ping && pip install fastapi uvicorn sqlalchemy alembic psycopg2-binary pydantic pydantic-settings && if [ -f 'backend/requirements.txt' ]; then pip install -r backend/requirements.txt; fi && if [ -d 'client' ]; then cd client && npm install && cd ..; fi && git config --global user.email 'iliagerman@gmail.com' && git config --global user.name 'Ilia German'",
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {
@@ -74,6 +66,7 @@
 				"janisdd.vscode-edit-csv",
 				"streetsidesoftware.code-spell-checker-hebrew",
 				"toolsai.vscode-jupyter-cell-tags",
+				"magicstack.magicpython",
 				"magicstack.magicpython",
 				"mechatroner.rainbow-csv",
 				"bradlc.vscode-tailwindcss",

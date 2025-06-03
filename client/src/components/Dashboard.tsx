@@ -1,6 +1,8 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { Logo } from '@/components/ui/logo';
 import { useAuth } from '@/contexts/AuthContext';
 import UserList from '@/components/UserList';
 import StatusComponent from '@/components/StatusComponent';
@@ -28,26 +30,25 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-card shadow-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                My Boilerplate App
-              </h1>
+            <div className="flex items-center">
+              <Logo width={160} height={48} className="h-8" />
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
+              <span className="text-sm text-muted-foreground">
                 Welcome, {user?.full_name || user?.email}
               </span>
-              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
                 {user?.role}
               </span>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <ThemeToggle />
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleSignOut}
               >
                 Sign Out
@@ -71,24 +72,24 @@ export const Dashboard: React.FC = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Email</label>
-                  <p className="text-sm text-gray-900">{user?.email}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Email</label>
+                  <p className="text-sm text-foreground">{user?.email}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Full Name</label>
-                  <p className="text-sm text-gray-900">{user?.full_name || 'Not provided'}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Full Name</label>
+                  <p className="text-sm text-foreground">{user?.full_name || 'Not provided'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Role</label>
-                  <p className="text-sm text-gray-900 capitalize">{user?.role}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Role</label>
+                  <p className="text-sm text-foreground capitalize">{user?.role}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
-                  <p className="text-sm text-gray-900">
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <p className="text-sm text-foreground">
                     {user?.is_active ? (
-                      <span className="text-green-600">Active</span>
+                      <span className="text-green-600 dark:text-green-400">Active</span>
                     ) : (
-                      <span className="text-red-600">Inactive</span>
+                      <span className="text-red-600 dark:text-red-400">Inactive</span>
                     )}
                   </p>
                 </div>
@@ -134,7 +135,7 @@ export const Dashboard: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   This is your dashboard. More features will be added here.
                 </p>
               </CardContent>

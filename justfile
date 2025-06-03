@@ -87,34 +87,71 @@ create_sqs:
 purge_sqs:
     awslocal sqs purge-queue --queue-url http://0.0.0.0:4566/000000000000/new-content --region=us-east-1
 
-# Create Cognito User Pool and Client in LocalStack
+# Create Cognito User Pool and Client in LocalStack (only if they don't exist)
 create_cognito:
     #!/bin/bash
-    echo "Creating Cognito User Pool in LocalStack..."
+    set -e
 
-    # Create user pool with predefined ID
-    awslocal cognito-idp create-user-pool \
-        --pool-name "MyAppUserPool" \
-        --user-pool-tags "_custom_id_=us-east-1_myid123" \
-        --policies '{"PasswordPolicy":{"MinimumLength":8,"RequireUppercase":true,"RequireLowercase":true,"RequireNumbers":true,"RequireSymbols":false}}' \
-        --auto-verified-attributes email \
-        --username-attributes email \
-        --verification-message-template '{"DefaultEmailOption":"CONFIRM_WITH_CODE"}' \
-        --admin-create-user-config '{"AllowAdminCreateUserOnly":false}'
+    USER_POOL_ID="us-east-1_myid123"
+    CLIENT_ID="myclient123"
+    POOL_NAME="MyAppUserPool"
 
-    # Create user pool client with predefined ID
-    awslocal cognito-idp create-user-pool-client \
-        --user-pool-id "us-east-1_myid123" \
-        --client-name "_custom_id_:myclient123" \
-        --generate-secret \
-        --explicit-auth-flows "USER_PASSWORD_AUTH" "REFRESH_TOKEN_AUTH" \
-        --supported-identity-providers "COGNITO" \
-        --read-attributes "email" "name" \
-        --write-attributes "email" "name"
+    echo "Checking if Cognito User Pool exists in LocalStack..."
 
-    echo "Cognito User Pool and Client created successfully!"
-    echo "User Pool ID: us-east-1_myid123"
-    echo "Client ID: myclient123"
+    # Check if user pool exists
+    if awslocal cognito-idp describe-user-pool --user-pool-id "$USER_POOL_ID" >/dev/null 2>&1; then
+        echo "✓ User Pool already exists (ID: $USER_POOL_ID)"
+
+        # Check if client exists
+        if awslocal cognito-idp describe-user-pool-client --user-pool-id "$USER_POOL_ID" --client-id "$CLIENT_ID" >/dev/null 2>&1; then
+            echo "✓ User Pool Client already exists (ID: $CLIENT_ID)"
+            echo "Cognito resources are already set up!"
+            exit 0
+        else
+            echo "User Pool exists but Client is missing. Creating Client..."
+            # Create user pool client with predefined ID
+            awslocal cognito-idp create-user-pool-client \
+                --user-pool-id "$USER_POOL_ID" \
+                --client-name "_custom_id_:$CLIENT_ID" \
+                --generate-secret \
+                --explicit-auth-flows "USER_PASSWORD_AUTH" "REFRESH_TOKEN_AUTH" \
+                --supported-identity-providers "COGNITO" \
+                --read-attributes "email" "name" \
+                --write-attributes "email" "name"
+            echo "✓ User Pool Client created successfully!"
+        fi
+    else
+        echo "User Pool doesn't exist. Creating User Pool and Client..."
+
+        # Create user pool with predefined ID
+        awslocal cognito-idp create-user-pool \
+            --pool-name "$POOL_NAME" \
+            --user-pool-tags "_custom_id_=$USER_POOL_ID" \
+            --policies '{"PasswordPolicy":{"MinimumLength":8,"RequireUppercase":true,"RequireLowercase":true,"RequireNumbers":true,"RequireSymbols":false}}' \
+            --auto-verified-attributes email \
+            --username-attributes email \
+            --verification-message-template '{"DefaultEmailOption":"CONFIRM_WITH_CODE"}' \
+            --admin-create-user-config '{"AllowAdminCreateUserOnly":false}'
+
+        echo "✓ User Pool created successfully!"
+
+        # Create user pool client with predefined ID
+        awslocal cognito-idp create-user-pool-client \
+            --user-pool-id "$USER_POOL_ID" \
+            --client-name "_custom_id_:$CLIENT_ID" \
+            --generate-secret \
+            --explicit-auth-flows "USER_PASSWORD_AUTH" "REFRESH_TOKEN_AUTH" \
+            --supported-identity-providers "COGNITO" \
+            --read-attributes "email" "name" \
+            --write-attributes "email" "name"
+
+        echo "✓ User Pool Client created successfully!"
+    fi
+
+    echo ""
+    echo "🎉 Cognito setup complete!"
+    echo "User Pool ID: $USER_POOL_ID"
+    echo "Client ID: $CLIENT_ID"
 
 # Setup LocalStack services (SQS + Cognito)
 setup_localstack:

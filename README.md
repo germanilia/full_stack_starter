@@ -38,16 +38,24 @@ A full-stack application with a FastAPI backend and React frontend, designed for
 │   │   └── dependencies.py # Authentication dependencies
 │   ├── alembic/            # Database migrations
 │   ├── secrets.example.yaml # Template for secrets configuration
+│   ├── requirements.txt    # Python dependencies
 │   └── Dockerfile          # Backend container setup
 ├── client/                 # React frontend
 │   ├── public/             # Static assets
 │   ├── src/                # React application code
 │   │   ├── components/     # UI components (including shadcn/ui)
+│   │   │   ├── ui/         # Shadcn/UI base components
+│   │   │   └── forms/      # Form components (login, signup, etc.)
 │   │   ├── contexts/       # React contexts (auth, etc.)
+│   │   ├── hooks/          # Custom React hooks
 │   │   ├── lib/            # Utility functions and services
-│   │   └── pages/          # Page components
+│   │   ├── pages/          # Page components
+│   │   └── types/          # TypeScript type definitions
 │   ├── .env.development.example # Frontend environment template
 │   ├── .env.production.example  # Production environment template
+│   ├── package.json        # Frontend dependencies
+│   ├── tailwind.config.js  # TailwindCSS configuration
+│   ├── vite.config.ts      # Vite configuration
 │   └── Dockerfile          # Frontend container setup
 ├── docker-compose.yml      # Multi-container setup
 ├── justfile               # Development commands
@@ -61,6 +69,8 @@ A full-stack application with a FastAPI backend and React frontend, designed for
   - Role-based access control (Admin/User roles)
   - JWT token management with automatic refresh
   - LocalStack integration for development
+- **Dark Mode Support**: Complete dark/light theme system with proper styling
+- **Responsive Design**: Mobile-first responsive UI components
 - **Configuration Management**: Flexible configuration system
   - Environment-specific settings
   - AWS Secrets Manager integration for production
@@ -69,8 +79,6 @@ A full-stack application with a FastAPI backend and React frontend, designed for
 - **Modern Frontend**: React with TypeScript, Vite, and Shadcn/UI
 - **Containerized Development**: Docker setup for consistent environments
 - **Development Tools**: Just commands, VSCode integration, devcontainer support
-
-
 
 ## Prerequisites
 
@@ -143,6 +151,231 @@ The application will be available at:
 - **Backend API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 
+## Frontend Development
+
+### Styling and Theming
+
+The application uses TailwindCSS with Shadcn/UI components and supports both light and dark themes:
+
+#### Dark Mode Implementation
+- **Theme Toggle**: Available in the navigation/header
+- **Automatic Detection**: Respects system preference by default
+- **Persistent Storage**: Theme preference saved to localStorage
+- **Component Styling**: All components properly styled for both themes
+
+#### Common Dark Mode Classes
+```css
+/* Background colors */
+bg-background          /* Main background (white/dark) */
+bg-card               /* Card background */
+bg-popover            /* Popover/modal background */
+bg-muted              /* Muted background */
+
+/* Text colors */
+text-foreground       /* Main text color */
+text-muted-foreground /* Muted text color */
+text-card-foreground  /* Card text color */
+
+/* Border colors */
+border-border         /* Standard border */
+border-input          /* Input border */
+```
+
+#### Form Components
+All form components (login, signup, etc.) are styled with:
+- Proper dark mode support using CSS variables
+- Consistent spacing and typography
+- Accessible focus states
+- Responsive design
+
+### Project Structure (Frontend)
+
+```
+client/src/
+├── components/
+│   ├── ui/              # Shadcn/UI base components
+│   │   ├── button.tsx
+│   │   ├── input.tsx
+│   │   ├── card.tsx
+│   │   └── ...
+│   ├── forms/           # Form components
+│   │   ├── LoginForm.tsx
+│   │   ├── SignupForm.tsx
+│   │   └── ...
+│   ├── layout/          # Layout components
+│   │   ├── Header.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── ThemeToggle.tsx
+│   └── ...
+├── contexts/
+│   ├── AuthContext.tsx  # Authentication state
+│   └── ThemeContext.tsx # Theme state
+├── hooks/
+│   ├── useAuth.ts
+│   ├── useTheme.ts
+│   └── ...
+├── lib/
+│   ├── api.ts          # API client
+│   ├── config.ts       # Configuration
+│   ├── utils.ts        # Utility functions
+│   └── validations.ts  # Form validations
+├── pages/
+│   ├── LoginPage.tsx
+│   ├── SignupPage.tsx
+│   ├── Dashboard.tsx
+│   └── ...
+└── types/
+    ├── auth.ts
+    ├── api.ts
+    └── ...
+```
+
+### Key Components
+
+#### Authentication Components
+- **AuthContext**: Manages authentication state and token handling
+- **ProtectedRoute**: Wrapper for route protection
+- **LoginForm/SignupForm**: Authentication forms with proper dark mode styling
+- **API Client**: Centralized API communication
+
+#### Theme Components
+- **ThemeContext**: Manages theme state (light/dark)
+- **ThemeToggle**: Toggle component for switching themes
+- **Theme Provider**: Applies theme classes to the application
+
+### Adding New Components
+
+When creating new components, ensure they support dark mode:
+
+```tsx
+// Example component with proper dark mode support
+const MyComponent = () => {
+  return (
+    <div className="bg-background text-foreground border border-border">
+      <h1 className="text-foreground">Title</h1>
+      <p className="text-muted-foreground">Description</p>
+    </div>
+  );
+};
+```
+
+### Environment Variables
+1. Add variable to appropriate `.env` files
+2. Add type to `src/vite-env.d.ts`
+3. Add to `AppConfig` interface in `src/lib/config.ts`
+4. Add getter function in `config.ts`
+
+## Backend Development
+
+### Project Structure (Backend)
+
+```
+backend/
+├── app/
+│   ├── core/
+│   │   ├── config.py      # Configuration management
+│   │   ├── security.py    # Security utilities
+│   │   └── database.py    # Database connection
+│   ├── crud/
+│   │   ├── base.py        # Base CRUD operations
+│   │   ├── user.py        # User CRUD operations
+│   │   └── ...
+│   ├── db/
+│   │   ├── base.py        # SQLAlchemy base
+│   │   ├── session.py     # Database session
+│   │   └── init_db.py     # Database initialization
+│   ├── models/
+│   │   ├── base.py        # Base model
+│   │   ├── user.py        # User model
+│   │   └── ...
+│   ├── routers/
+│   │   ├── auth.py        # Authentication endpoints
+│   │   ├── users.py       # User management
+│   │   ├── admin.py       # Admin endpoints
+│   │   └── ...
+│   ├── schemas/
+│   │   ├── user.py        # User Pydantic models
+│   │   ├── auth.py        # Auth Pydantic models
+│   │   └── ...
+│   ├── services/
+│   │   ├── auth_service.py     # Authentication business logic
+│   │   ├── cognito_service.py  # AWS Cognito integration
+│   │   └── ...
+│   ├── dependencies.py    # FastAPI dependencies
+│   └── main.py           # FastAPI application
+├── alembic/              # Database migrations
+├── tests/                # Test files
+├── secrets.example.yaml  # Secrets template
+├── requirements.txt      # Python dependencies
+└── Dockerfile           # Container configuration
+```
+
+### API Development
+
+#### Creating New Endpoints
+1. **Define Pydantic schemas** in `schemas/`
+2. **Create CRUD operations** in `crud/`
+3. **Add router endpoints** in `routers/`
+4. **Include router** in `main.py`
+
+#### Example API Endpoint
+```python
+# schemas/example.py
+from pydantic import BaseModel
+
+class ExampleCreate(BaseModel):
+    name: str
+    description: str
+
+class ExampleResponse(BaseModel):
+    id: int
+    name: str
+    description: str
+
+# routers/example.py
+from fastapi import APIRouter, Depends
+from app.dependencies import get_current_active_user
+
+router = APIRouter(prefix="/api/v1/examples", tags=["examples"])
+
+@router.post("/", response_model=ExampleResponse)
+async def create_example(
+    example: ExampleCreate,
+    current_user: User = Depends(get_current_active_user)
+):
+    # Implementation here
+    pass
+```
+
+### Database Management
+
+#### Creating Migrations
+```bash
+# Generate new migration
+just generate_migration "Add new table"
+
+# Apply migrations
+just migrate
+
+# Downgrade migration
+alembic downgrade -1
+```
+
+#### Model Development
+```python
+# models/example.py
+from sqlalchemy import Column, Integer, String, DateTime
+from app.db.base import Base
+
+class Example(Base):
+    __tablename__ = "examples"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    description = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+```
+
 ## Configuration System
 
 The application uses a flexible configuration system that loads settings from multiple sources with the following priority:
@@ -156,7 +389,7 @@ The application uses a flexible configuration system that loads settings from mu
 
 #### Environment Files (Non-sensitive)
 - `.env.development`: Development environment settings
-- `.env.production`: Production environment settings
+- `.env.production`: Production environment settings  
 - `.env.testing`: Testing environment settings
 
 Common environment variables:
@@ -209,6 +442,8 @@ The frontend uses environment-specific files:
 
 Key variables:
 - `VITE_API_URL`: Backend API URL (e.g., http://localhost:8000)
+- `VITE_APP_TITLE`: Application title
+- `VITE_DEFAULT_THEME`: Default theme (light/dark)
 
 ### AWS Secrets Manager Integration (Production)
 
@@ -426,7 +661,13 @@ just create_cognito   # Create Cognito resources
 just setup_localstack # Setup all LocalStack services
 
 # Testing
-just test             # Run tests
+just test             # Run all tests
+just test-backend     # Backend tests only
+just test-frontend    # Frontend tests only
+
+# Code quality
+just lint             # Run linters
+just format           # Format code
 ```
 
 ### Manual Commands
@@ -436,6 +677,17 @@ just test             # Run tests
 cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
+
+# Testing
+pytest
+pytest tests/test_auth.py
+pytest -v --cov=app
+
+# Code quality
+black .
+isort .
+flake8 .
+mypy .
 ```
 
 #### Frontend
@@ -443,6 +695,16 @@ uvicorn app.main:app --reload --port 8000
 cd client
 npm install
 npm run dev
+
+# Testing
+npm test
+npm run test:coverage
+npm run test:watch
+
+# Code quality
+npm run lint
+npm run lint:fix
+npm run type-check
 ```
 
 ### Docker Development
@@ -454,27 +716,10 @@ docker-compose up
 # Start specific services
 docker-compose up backend frontend postgres
 docker-compose up localstack  # For AWS services simulation
+
+# Development with hot reload
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
-
-## Frontend Development
-
-### Project Structure
-- `src/components/`: React components including Shadcn/UI components
-- `src/contexts/`: React contexts for state management (AuthContext)
-- `src/lib/`: Utility functions and services (API client, config)
-- `src/pages/`: Page components for routing
-
-### Key Components
-- **AuthContext**: Manages authentication state and token handling
-- **ProtectedRoute**: Wrapper for route protection
-- **LoginForm/RegisterForm**: Authentication forms
-- **API Client**: Centralized API communication
-
-### Adding Environment Variables
-1. Add variable to appropriate `.env` files
-2. Add type to `src/vite-env.d.ts`
-3. Add to `AppConfig` interface in `src/lib/config.ts`
-4. Add getter function in `config.ts`
 
 ## Testing
 
@@ -484,6 +729,20 @@ cd backend
 pytest                    # Run all tests
 pytest tests/test_auth.py # Run specific test file
 pytest -v                # Verbose output
+pytest --cov=app         # Coverage report
+pytest -x                # Stop on first failure
+```
+
+Test structure:
+```
+backend/tests/
+├── conftest.py           # Test configuration
+├── test_auth.py         # Authentication tests
+├── test_users.py        # User management tests
+├── test_admin.py        # Admin functionality tests
+└── integration/         # Integration tests
+    ├── test_api.py
+    └── test_database.py
 ```
 
 ### Frontend Testing
@@ -491,6 +750,20 @@ pytest -v                # Verbose output
 cd client
 npm test                 # Run tests
 npm run test:coverage    # Run with coverage
+npm run test:watch       # Watch mode
+npm run test:ui          # UI test runner
+```
+
+Test structure:
+```
+client/src/
+├── __tests__/           # Test files
+│   ├── components/
+│   ├── hooks/
+│   ├── pages/
+│   └── utils/
+├── __mocks__/           # Mock files
+└── test-utils.tsx       # Testing utilities
 ```
 
 ### Integration Testing
@@ -528,6 +801,17 @@ curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \
 3. **With invalid tokens in production**: Should reject all tokens
 4. **Dev endpoints in production**: Should return 404
 
+### End-to-End Testing
+
+Using Playwright for E2E tests:
+```bash
+# Frontend E2E tests
+cd client
+npm run test:e2e
+npm run test:e2e:ui      # With UI
+npm run test:e2e:debug   # Debug mode
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -539,6 +823,12 @@ curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \
 - "Token validation failed": In dev mode, check both Cognito and local token formats
 - "Development endpoints not available": Ensure `APP_ENV=development`
 - "Local tokens not allowed": Trying to use dev tokens in production mode
+
+**Frontend/Styling Issues:**
+- **Dark mode not working**: Check if ThemeProvider is properly configured
+- **Components not styled**: Ensure TailwindCSS is properly imported
+- **White background in dark mode**: Check component uses `bg-background` instead of `bg-white`
+- **Theme not persisting**: Check localStorage permissions and ThemeContext
 
 **LocalStack Issues:**
 - "Failed to fetch JWKS": Ensure LocalStack is running and Cognito is set up
@@ -553,6 +843,11 @@ curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \
 - Connection failed: Check database credentials in `secrets.yaml`
 - Migration errors: Ensure database exists and is accessible
 
+**Build Issues:**
+- **Frontend build fails**: Check TypeScript errors, missing dependencies
+- **Backend start fails**: Check Python dependencies, environment variables
+- **Docker build fails**: Check Dockerfile syntax, build context
+
 ### Debug Mode
 
 Enable debug logging:
@@ -562,11 +857,30 @@ LOG_LEVEL=DEBUG
 
 # Frontend (development builds include console.log statements)
 npm run dev
+
+# Docker with debug
+docker-compose -f docker-compose.yml -f docker-compose.debug.yml up
 ```
+
+### Performance Issues
+
+**Backend Performance:**
+- Enable SQL query logging: `SQLALCHEMY_ECHO=true`
+- Use database connection pooling
+- Implement caching for frequent queries
+- Monitor with `uvicorn --log-level debug`
+
+**Frontend Performance:**
+- Use React DevTools Profiler
+- Check bundle size: `npm run build -- --analyze`
+- Optimize images and assets
+- Implement code splitting
 
 ## Production Deployment
 
 ### Backend Deployment
+
+#### AWS Deployment (Recommended)
 1. **Set up AWS Secrets Manager** with production secrets
 2. **Configure environment variables**:
    ```bash
@@ -578,19 +892,108 @@ npm run dev
 4. **Configure database** (RDS recommended)
 5. **Set up CORS** for production domain
 
+#### Docker Production Deployment
+```bash
+# Build production images
+docker-compose -f docker-compose.prod.yml build
+
+# Deploy with production configuration
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+#### Environment Variables (Production)
+```bash
+# Required production environment variables
+APP_ENV=production
+DEBUG=False
+USE_LOCALSTACK=False
+CORS_ORIGINS=https://yourdomain.com
+AWS_SECRETS_MANAGER_SECRET_NAME=your-secret-name
+AWS_DEFAULT_REGION=us-east-1
+```
+
 ### Frontend Deployment
+
+#### Static Site Deployment
 1. **Update environment variables** in `.env.production`
 2. **Build for production**: `npm run build`
-3. **Deploy static files** to CDN/hosting service
+3. **Deploy static files** to CDN/hosting service (Vercel, Netlify, S3+CloudFront)
 4. **Configure routing** for SPA (single-page application)
 
+#### Production Environment Variables
+```bash
+# .env.production
+VITE_API_URL=https://api.yourdomain.com
+VITE_APP_TITLE=Your App Name
+VITE_DEFAULT_THEME=light
+```
+
+#### Build Configuration
+```bash
+# Build for production
+npm run build
+
+# Preview production build locally
+npm run preview
+
+# Analyze bundle size
+npm run build -- --analyze
+```
+
 ### Security Considerations
+
+#### Backend Security
 - Use HTTPS in production
 - Store secrets in AWS Secrets Manager
 - Configure proper CORS origins
 - Set appropriate token expiration times
 - Monitor authentication logs
 - Use IAM roles for AWS service access
+- Enable request rate limiting
+- Use security headers (HSTS, CSP, etc.)
+
+#### Frontend Security
+- Implement Content Security Policy (CSP)
+- Use HTTPS for all resources
+- Sanitize user inputs
+- Avoid storing sensitive data in localStorage
+- Implement proper error boundaries
+- Use secure authentication flows
+
+#### Database Security
+- Use connection pooling
+- Enable SSL connections
+- Implement proper access controls
+- Regular security updates
+- Monitor for suspicious activity
+- Backup and disaster recovery
+
+### Monitoring and Logging
+
+#### Backend Monitoring
+```python
+# Add to main.py for production logging
+import logging
+from app.core.config import settings
+
+if settings.app_env == "production":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+```
+
+#### Frontend Monitoring
+- Implement error tracking (Sentry, LogRocket)
+- Monitor performance metrics
+- Track user analytics
+- Set up uptime monitoring
+
+#### Infrastructure Monitoring
+- AWS CloudWatch for AWS resources
+- Application performance monitoring (APM)
+- Database performance monitoring
+- Load balancer health checks
 
 ## VSCode Integration
 
@@ -606,6 +1009,29 @@ npm run dev
 3. Click green button in lower left → "Reopen in Container"
 4. Container includes all necessary tools pre-installed
 
+### Recommended Extensions
+```json
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.black-formatter",
+    "ms-python.isort",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "ms-vscode.vscode-typescript-next",
+    "ms-vscode-remote.remote-containers",
+    "ms-vscode.vscode-json"
+  ]
+}
+```
+
+### Debug Configuration
+The project includes debug configurations for:
+- FastAPI backend debugging
+- React frontend debugging
+- Full-stack debugging
+- Testing debugging
+
 ## Contributing
 
 1. **Fork the repository**
@@ -618,7 +1044,91 @@ npm run dev
 8. **Open Pull Request**
 
 ### Coding Standards
-- **Backend**: Follow PEP 8, use type hints, write docstrings
-- **Frontend**: Use TypeScript, follow ESLint rules, use Prettier
-- **Testing**: Write tests for new features and bug fixes
-- **Documentation**: Update README and inline documentation
+
+#### Backend Standards
+- **Follow PEP 8** for Python code style
+- **Use type hints** for all function parameters and returns
+- **Write docstrings** for all functions and classes
+- **Use explicit imports** instead of wildcard imports
+- **Prefer composition over inheritance**
+- **Write unit tests** for new functionality
+
+```python
+# Good example
+def create_user(
+    db: Session, 
+    user_create: UserCreate
+) -> User:
+    """Create a new user in the database.
+    
+    Args:
+        db: Database session
+        user_create: User creation data
+        
+    Returns:
+        Created user instance
+        
+    Raises:
+        ValueError: If email already exists
+    """
+    # Implementation here
+    pass
+```
+
+#### Frontend Standards
+- **Use TypeScript** for all new code
+- **Follow ESLint rules** and Prettier formatting
+- **Use functional components** with hooks
+- **Implement proper error boundaries**
+- **Write unit tests** for components and utilities
+
+```tsx
+// Good example
+interface UserCardProps {
+  user: User;
+  onEdit: (user: User) => void;
+}
+
+const UserCard: React.FC<UserCardProps> = ({ user, onEdit }) => {
+  return (
+    <div className="bg-card text-card-foreground p-4 rounded-lg">
+      <h3 className="text-lg font-semibold">{user.fullName}</h3>
+      <p className="text-muted-foreground">{user.email}</p>
+      <button 
+        onClick={() => onEdit(user)}
+        className="mt-2 px-4 py-2 bg-primary text-primary-foreground rounded"
+      >
+        Edit
+      </button>
+    </div>
+  );
+};
+```
+
+### Testing Standards
+- **Write tests** for new features and bug fixes
+- **Maintain test coverage** above 80%
+- **Use descriptive test names** that explain the scenario
+- **Mock external dependencies** in unit tests
+- **Write integration tests** for API endpoints
+
+### Documentation Standards
+- **Update README** for significant changes
+- **Document API endpoints** with proper schemas
+- **Add inline comments** for complex logic
+- **Update environment templates** when adding new variables
+- **Include migration instructions** for breaking changes
+
+### Git Workflow
+1. **Create feature branch** from `main`
+2. **Make small, focused commits** with clear messages
+3. **Rebase before merging** to maintain clean history
+4. **Use conventional commit messages**:
+   - `feat: add user authentication`
+   - `fix: resolve dark mode styling issue`
+   - `docs: update deployment instructions`
+   - `test: add integration tests for auth API`
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
