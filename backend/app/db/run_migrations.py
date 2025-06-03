@@ -1,12 +1,11 @@
-import os
 import sys
-import logging
 import subprocess
 from pathlib import Path
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from app.core.logging_service import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 def run_migrations():
     """
@@ -14,12 +13,11 @@ def run_migrations():
     This function uses the database URL from the config service via alembic/env.py.
     """
     try:
-        # Get the path to the alembic directory
+        # Get the path to the backend directory
         backend_dir = Path(__file__).resolve().parent.parent.parent
-        alembic_dir = backend_dir / "alembic"
-        
-        logger.info("Running database migrations...")
-        
+
+        logger.info("Starting database migrations", operation="run_migrations")
+
         # Run alembic upgrade head
         result = subprocess.run(
             ["alembic", "upgrade", "head"],
@@ -28,19 +26,25 @@ def run_migrations():
             text=True,
             check=True
         )
-        
-        logger.info(f"Migration output:\n{result.stdout}")
-        if result.stderr:
-            logger.warning(f"Migration warnings/errors:\n{result.stderr}")
-            
-        logger.info("Database migrations completed successfully")
+
+        if result.stdout.strip():
+            logger.info("Migration output", output=result.stdout.strip())
+        if result.stderr.strip():
+            logger.warning("Migration warnings", warnings=result.stderr.strip())
+
+        logger.info("Database migrations completed successfully", operation="run_migrations", status="success")
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Migration failed with error code {e.returncode}")
-        logger.error(f"Error output:\n{e.stderr}")
+        logger.error(
+            "Migration failed",
+            operation="run_migrations",
+            status="failed",
+            error_code=e.returncode,
+            error_output=e.stderr if e.stderr else "No error output"
+        )
         return False
     except Exception as e:
-        logger.error(f"Error running migrations: {e}")
+        logger.error("Unexpected error running migrations", operation="run_migrations", status="error", error=str(e))
         return False
 
 if __name__ == "__main__":

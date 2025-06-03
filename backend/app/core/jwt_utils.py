@@ -1,11 +1,11 @@
 """
 JWT utilities for token validation and user authentication.
 """
-import jwt
 import requests
 from typing import Dict, Optional, Any
 from datetime import datetime, timezone
 from jose import JWTError, jwt as jose_jwt
+from jose.constants import ALGORITHMS
 from app.core.config_service import config_service
 from app.core.logging_service import get_logger
 from app.schemas.auth import TokenData
@@ -43,9 +43,12 @@ class JWTValidator:
                 self._jwks_cache = response.json()
                 logger.info("Successfully fetched JWKS")
             except Exception as e:
-                logger.error(f"Failed to fetch JWKS: {e}")
+                logger.exception(f"Failed to fetch JWKS: {e}")
                 raise Exception("Failed to fetch JWKS for token validation")
         
+        # At this point, _jwks_cache cannot be None because we either
+        # have a previously cached value or we just set it (or raised an exception)
+        assert self._jwks_cache is not None
         return self._jwks_cache
 
     def _get_signing_key(self, token_header: Dict[str, Any]) -> str:
@@ -60,7 +63,8 @@ class JWTValidator:
         for key in jwks.get("keys", []):
             if key.get("kid") == kid:
                 # Convert JWK to PEM format
-                return jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                from jose.backends.rsa_backend import RSAKey
+                return RSAKey(key, ALGORITHMS.RS256).to_pem().decode('utf-8')
         
         raise Exception(f"Unable to find signing key with kid: {kid}")
 

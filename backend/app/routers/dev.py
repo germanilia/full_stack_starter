@@ -6,11 +6,12 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
-from app.dependencies import get_db
+from app.dependencies import get_db, get_user_service
 from app.core.config_service import config_service
 from app.core.jwt_utils import create_access_token
-from app.crud.user import UserCRUD
-from app.models.user import User, UserRole
+from app.services.user_service import UserService
+
+from app.models.user import UserRole
 from app.core.logging_service import get_logger
 
 logger = get_logger(__name__)
@@ -51,6 +52,7 @@ if dev_router is not None:
     async def create_dev_token(
         request: DevTokenRequest,
         db: Session = Depends(get_db),
+        user_service: UserService = Depends(get_user_service),
         _: None = Depends(check_development_mode)
     ):
         """
@@ -59,7 +61,7 @@ if dev_router is not None:
         """
         try:
             # Check if user exists in database
-            user = UserCRUD.get_user_by_username(db, username=request.username)
+            user = user_service.get_user_by_username(db, username=request.username)
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -96,6 +98,7 @@ if dev_router is not None:
     @dev_router.get("/users")
     async def list_dev_users(
         db: Session = Depends(get_db),
+        user_service: UserService = Depends(get_user_service),
         _: None = Depends(check_development_mode)
     ):
         """
@@ -103,7 +106,7 @@ if dev_router is not None:
         Only available in development mode.
         """
         try:
-            users = UserCRUD.get_users(db, skip=0, limit=100)
+            users = user_service.get_users(db, skip=0, limit=100)
             return [
                 {
                     "username": user.username,
@@ -123,6 +126,7 @@ if dev_router is not None:
     @dev_router.post("/create-test-user")
     async def create_test_user(
         db: Session = Depends(get_db),
+        user_service: UserService = Depends(get_user_service),
         _: None = Depends(check_development_mode)
     ):
         """
@@ -131,7 +135,7 @@ if dev_router is not None:
         """
         try:
             # Check if test user already exists
-            existing_user = UserCRUD.get_user_by_username(db, username="testuser")
+            existing_user = user_service.get_user_by_username(db, username="testuser")
             if existing_user:
                 return {
                     "message": "Test user already exists",
@@ -139,19 +143,14 @@ if dev_router is not None:
                     "email": existing_user.email
                 }
 
-            # Create test user
-            test_user = User(
+            # Create test user using UserService
+            test_user = user_service.create_user_from_params(
+                db=db,
                 username="testuser",
                 email="test@example.com",
                 full_name="Test User",
-                role=UserRole.USER,
-                is_active=True,
-                cognito_sub=None
+                role=UserRole.USER
             )
-
-            db.add(test_user)
-            db.commit()
-            db.refresh(test_user)
 
             logger.info("Created test user for development")
 
@@ -164,7 +163,6 @@ if dev_router is not None:
 
         except Exception as e:
             logger.error(f"Failed to create test user: {e}")
-            db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to create test user: {str(e)}"

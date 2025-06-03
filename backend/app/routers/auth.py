@@ -3,15 +3,15 @@ Authentication router for user registration, login, and token management.
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
-from app.dependencies import get_db, get_current_active_user
+from app.dependencies import get_db, get_current_active_user, get_user_service
 from app.schemas.auth import (
     SignUpRequest, SignUpResponse, ConfirmSignUpRequest, ConfirmSignUpResponse,
     SignInRequest, SignInResponse, RefreshTokenRequest, RefreshTokenResponse,
     UserInfo, MessageResponse
 )
+from app.schemas.user import UserResponse, UserUpdate
 from app.services.cognito_service import cognito_service
-from app.crud.user import UserCRUD
-from app.models.user import User
+from app.services.user_service import UserService
 from app.core.logging_service import get_logger
 from app.utils.username_utils import validate_and_transform_email
 
@@ -21,16 +21,20 @@ auth_router = APIRouter()
 
 
 @auth_router.post("/signup", response_model=SignUpResponse)
-async def sign_up(request: SignUpRequest, db: Session = Depends(get_db)):
+async def sign_up(
+    request: SignUpRequest,
+    db: Session = Depends(get_db),
+    user_service: UserService = Depends(get_user_service)
+):
     """
     Register a new user with Cognito and create user record in database.
     """
     try:
         # Validate and normalize email
-        normalized_email, cognito_username = validate_and_transform_email(request.email)
+        normalized_email, _ = validate_and_transform_email(request.email)
 
         # Check if user already exists in database
-        existing_email = UserCRUD.get_user_by_email(db, normalized_email)
+        existing_email = user_service.get_user_by_email(db, normalized_email)
         if existing_email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -45,7 +49,7 @@ async def sign_up(request: SignUpRequest, db: Session = Depends(get_db)):
         )
 
         # Create user record in database
-        user = UserCRUD.create_user(
+        user_service.create_user_from_params(
             db=db,
             username=normalized_email,  # Use email as username
             email=normalized_email,
@@ -97,7 +101,11 @@ async def confirm_sign_up(request: ConfirmSignUpRequest):
 
 
 @auth_router.post("/signin", response_model=SignInResponse)
-async def sign_in(request: SignInRequest, db: Session = Depends(get_db)):
+async def sign_in(
+    request: SignInRequest,
+    db: Session = Depends(get_db),
+    user_service: UserService = Depends(get_user_service)
+):
     """
     Sign in user and return access tokens.
     """
@@ -112,16 +120,17 @@ async def sign_in(request: SignInRequest, db: Session = Depends(get_db)):
         user_info = await cognito_service.get_user_info(tokens["access_token"])
 
         # Get or update user in database
-        user = UserCRUD.get_user_by_cognito_sub(db, user_info["user_sub"])
+        user = user_service.get_user_by_cognito_sub(db, user_info["user_sub"])
         if not user:
             # User might exist with email but no cognito_sub
-            user = UserCRUD.get_user_by_email(db, request.email)
+            user = user_service.get_user_by_email(db, request.email)
             if user:
                 # Update user with cognito_sub
-                UserCRUD.update_user(db, user.id, cognito_sub=user_info["user_sub"])
+                user_update = UserUpdate(cognito_sub=user_info["user_sub"])
+                user = user_service.update_user(db, user.id, user_update)
             else:
                 # Create new user record
-                user = UserCRUD.create_user(
+                user = user_service.create_user_from_params(
                     db=db,
                     username=request.email,  # Use email as username
                     email=user_info["email"],
@@ -129,20 +138,26 @@ async def sign_in(request: SignInRequest, db: Session = Depends(get_db)):
                     cognito_sub=user_info["user_sub"]
                 )
 
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create or retrieve user"
+            )
+
         logger.info(f"User {request.email} signed in successfully")
-        
+
         return SignInResponse(
             access_token=tokens["access_token"],
             id_token=tokens["id_token"],
             refresh_token=tokens.get("refresh_token"),
             expires_in=tokens["expires_in"],
             user=UserInfo(
-                username=str(user.username),
-                email=str(user.email),
-                full_name=str(user.full_name) if user.full_name is not None else None,
+                username=user.username,
+                email=user.email,
+                full_name=user.full_name,
                 role=user.role,
-                is_active=bool(user.is_active),
-                user_sub=str(user.cognito_sub) if user.cognito_sub is not None else None
+                is_active=user.is_active,
+                user_sub=user.cognito_sub
             )
         )
 
@@ -182,17 +197,17 @@ async def refresh_token(request: RefreshTokenRequest):
 
 
 @auth_router.get("/me", response_model=UserInfo)
-async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
+async def get_current_user_info(current_user: UserResponse = Depends(get_current_active_user)):
     """
     Get current user information.
     """
     return UserInfo(
-        username=str(current_user.username),
-        email=str(current_user.email),
-        full_name=str(current_user.full_name) if current_user.full_name is not None else None,
+        username=current_user.username,
+        email=current_user.email,
+        full_name=current_user.full_name,
         role=current_user.role,
-        is_active=bool(current_user.is_active),
-        user_sub=str(current_user.cognito_sub) if current_user.cognito_sub is not None else None
+        is_active=current_user.is_active,
+        user_sub=current_user.cognito_sub
     )
 
 

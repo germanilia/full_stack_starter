@@ -31,6 +31,22 @@ run-client:
 run:
     just run-backend & just run-client
 
+# Test commands
+test-backend:
+    cd backend && python -m pytest
+
+test-backend-unit:
+    cd backend && python -m pytest tests/unit/
+
+test-backend-integration:
+    cd backend && python -m pytest tests/integration/
+
+test-backend-coverage:
+    cd backend && python -m pytest --cov=app tests/
+
+test-backend-verbose:
+    cd backend && python -m pytest -v
+
 # SSH key management commands
 ssh-use-germanilia:
     cp /tmp/host-germanilia-key ~/.ssh/id_rsa

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+
 from app.routers import router as api_router
 from app.core.config_service import settings
 from app.db.init_db import init_db
@@ -13,9 +14,13 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # Startup logic
-    logger.info("Initializing database on startup")
-    init_db()
-    logger.info("Database initialized successfully", service="database", status="initialized")
+    logger.info("Starting application database setup")
+    success = init_db()
+    if success:
+        logger.info("Database setup completed successfully", service="database", status="initialized")
+    else:
+        logger.error("Database setup failed", service="database", status="failed")
+        raise RuntimeError("Failed to initialize database")
 
     yield
 
@@ -54,13 +59,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Initialize database on startup
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Initializing database on startup")
-    init_db()
-    logger.info("Database initialized successfully")
 
 # Include routers
 app.include_router(api_router)

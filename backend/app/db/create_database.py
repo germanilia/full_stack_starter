@@ -1,12 +1,12 @@
-import logging
 import sys
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from app.core.config_service import config_service
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from app.core.config_service import config_service
+from app.core.logging_service import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 def create_database():
     """
@@ -33,32 +33,35 @@ def create_database():
         "port": port,
     }
 
-    logger.info(f"Using database name: {db_name}")
-    logger.info(f"Using host: {host}, port: {port}")
+    logger.info("Database creation parameters", database_name=db_name, host=host, port=port)
 
     try:
         # Connect to PostgreSQL server (to postgres database)
-        logger.info(f"Connecting to PostgreSQL server at {db_params['host']}:{db_params['port']}")
+        logger.info("Connecting to PostgreSQL server", host=db_params["host"], port=db_params["port"])
         conn = psycopg2.connect(**db_params, database="postgres")
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
 
         # Check if database exists
-        cursor.execute(f"SELECT 1 FROM pg_catalog.pg_database WHERE datname = '{db_name}'")
+        cursor.execute("SELECT 1 FROM pg_catalog.pg_database WHERE datname = %s", (db_name,))
         exists = cursor.fetchone()
 
         if not exists:
-            logger.info(f"Creating database '{db_name}'")
-            cursor.execute(f"CREATE DATABASE {db_name}")
-            logger.info(f"Database '{db_name}' created successfully")
+            logger.info("Creating database", database_name=db_name)
+            # Use identifier quoting for safety
+            cursor.execute(f'CREATE DATABASE "{db_name}"')
+            logger.info("Database created successfully", database_name=db_name, status="created")
         else:
-            logger.info(f"Database '{db_name}' already exists")
+            logger.info("Database already exists", database_name=db_name, status="exists")
 
         cursor.close()
         conn.close()
         return True
+    except psycopg2.Error as e:
+        logger.error("PostgreSQL error during database creation", error=str(e), error_code=e.pgcode if hasattr(e, "pgcode") else None)
+        return False
     except Exception as e:
-        logger.error(f"Error creating database: {e}")
+        logger.error("Unexpected error during database creation", error=str(e))
         return False
 
 if __name__ == "__main__":
