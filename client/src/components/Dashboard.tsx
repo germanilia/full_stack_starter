@@ -1,68 +1,34 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { Logo } from '@/components/ui/logo';
 import { useAuth } from '@/contexts/AuthContext';
 import UserList from '@/components/UserList';
 import StatusComponent from '@/components/StatusComponent';
 
 export const Dashboard: React.FC = () => {
-  const { user, signOut, isLoading } = useAuth();
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
-  };
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p>Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card shadow-sm border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Logo width={160} height={48} className="h-8" />
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">
-                Welcome, {user?.full_name || user?.email}
-              </span>
-              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                {user?.role}
-              </span>
-              <ThemeToggle />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSignOut}
-              >
-                Sign Out
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Welcome back, {user?.full_name || user?.email}
+        </p>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="space-y-6">
-          {/* User Info Card */}
-          <Card>
+      {/* User Info Card */}
+      <Card>
             <CardHeader>
               <CardTitle>User Information</CardTitle>
               <CardDescription>
@@ -141,8 +107,6 @@ export const Dashboard: React.FC = () => {
               </CardContent>
             </Card>
           )}
-        </div>
-      </main>
     </div>
   );
 };
