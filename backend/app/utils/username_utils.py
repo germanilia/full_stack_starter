@@ -12,9 +12,16 @@ def is_valid_email(email: str) -> bool:
     """
     if not email:
         return False
-    
-    # Basic email validation regex
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+    # More strict email validation regex that doesn't allow consecutive dots
+    # Local part: alphanumeric, dots (not consecutive), underscores, percent, plus, hyphens
+    # Domain part: alphanumeric, dots, hyphens, must end with 2+ letter TLD
+    email_pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9._+%-]*[a-zA-Z0-9])?@[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,}$'
+
+    # Additional check: no consecutive dots
+    if '..' in email:
+        return False
+
     return re.match(email_pattern, email) is not None
 
 

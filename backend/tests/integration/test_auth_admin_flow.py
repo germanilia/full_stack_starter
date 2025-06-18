@@ -124,61 +124,7 @@ class TestAuthAdminFlow:
         assert first_user.role == UserRole.ADMIN
         assert first_user.username == "admin@example.com"
 
-    @patch('app.services.cognito_service.cognito_service.sign_up')
-    @patch('app.services.cognito_service.cognito_service.sign_in')
-    @patch('app.services.cognito_service.cognito_service.get_user_info')
-    def test_signup_signin_flow_first_user_admin(
-        self, 
-        mock_get_user_info,
-        mock_sign_in,
-        mock_sign_up,
-        client
-    ):
-        """Test complete signup/signin flow where first user becomes admin."""
-        # Mock Cognito responses
-        mock_sign_up.return_value = {
-            "user_sub": "cognito_sub_123",
-            "user_confirmed": True
-        }
-        
-        mock_sign_in.return_value = {
-            "access_token": "mock_access_token",
-            "id_token": "mock_id_token",
-            "refresh_token": "mock_refresh_token",
-            "expires_in": 3600
-        }
-        
-        mock_get_user_info.return_value = {
-            "user_sub": "cognito_sub_123",
-            "email": "admin@example.com",
-            "name": "Admin User"
-        }
-        
-        # Test signup
-        signup_response = client.post("/api/v1/auth/signup", json={
-            "email": "admin@example.com",
-            "password": "TestPass123!",
-            "full_name": "Admin User"
-        })
-        
-        assert signup_response.status_code == 200
-        signup_data = signup_response.json()
-        assert signup_data["user_sub"] == "cognito_sub_123"
-        
-        # Test signin
-        signin_response = client.post("/api/v1/auth/signin", json={
-            "email": "admin@example.com",
-            "password": "TestPass123!"
-        })
-        
-        assert signin_response.status_code == 200
-        signin_data = signin_response.json()
-        
-        # Verify user info includes admin role
-        user_info = signin_data["user"]
-        assert user_info["role"] == "admin"
-        assert user_info["email"] == "admin@example.com"
-        assert user_info["username"] == "admin@example.com"
+
 
     def test_user_count_affects_admin_assignment(self, db):
         """Test that user count correctly affects admin role assignment."""

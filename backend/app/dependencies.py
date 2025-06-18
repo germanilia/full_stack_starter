@@ -3,7 +3,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.db import SessionLocal
-from app.core.jwt_utils import jwt_validator
+from app.core.service_factory import get_jwt_validator
 from app.models.user import UserRole
 from app.crud.user import UserDAO
 from app.services.user_service import UserService
@@ -53,6 +53,7 @@ async def get_current_user_token(
 
     try:
         token = credentials.credentials
+        jwt_validator = get_jwt_validator()
         token_data = jwt_validator.validate_token(token)
 
         if token_data.username is None and token_data.user_sub is None:

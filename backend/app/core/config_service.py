@@ -206,10 +206,16 @@ class ConfigService:
         """
         Get database URL from secrets or construct it from components.
         Priority:
-        1. Full URL from secrets
-        2. Full URL from environment
+        1. Full URL from environment (prioritized in test mode)
+        2. Full URL from secrets
         3. Constructed from components
         """
+        # In test mode, prioritize environment variable over secrets
+        if self.is_testing():
+            db_url = os.getenv("DATABASE_URL")
+            if db_url:
+                return db_url
+
         # Check if a full URL is provided in secrets
         if self._secrets and "database" in self._secrets and "url" in self._secrets["database"]:
             return self._secrets["database"]["url"]
@@ -264,7 +270,11 @@ class ConfigService:
 
     def is_testing(self) -> bool:
         """Check if the application is running in test mode"""
-        return self._env.lower() == "testing"
+        return self._env.lower() in ("test", "testing")
+
+    def use_mock_cognito(self) -> bool:
+        """Check if mock Cognito service should be used"""
+        return os.getenv("USE_MOCK_COGNITO", "false").lower() == "true"
 
 
 # Create a singleton instance

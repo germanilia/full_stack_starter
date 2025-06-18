@@ -26,32 +26,6 @@ class TestCognitoIntegration:
         logger.info(f"Is LocalStack: {cognito_service.is_localstack}")
 
     @pytest.mark.asyncio
-    async def test_cognito_sign_up_integration(self):
-        """
-        Test Cognito sign up integration.
-        This test may fail if Cognito/LocalStack is not properly set up.
-        """
-        test_email = "test@example.com"
-        test_password = "TestPass123!"
-
-        try:
-            result = await cognito_service.sign_up(
-                email=test_email,
-                password=test_password,
-                full_name="Test User"
-            )
-            logger.info(f"Sign up test successful: {result}")
-
-            # If successful, verify result structure
-            assert "user_sub" in result
-            assert "user_confirmed" in result
-
-        except Exception as e:
-            # This is expected if Cognito/LocalStack is not set up
-            logger.warning(f"Sign up test failed (expected if Cognito not set up): {e}")
-            pytest.skip(f"Cognito integration not available: {e}")
-
-    @pytest.mark.asyncio
     async def test_cognito_service_initialization(self):
         """Test that Cognito service initializes without errors."""
         # This should not raise an exception

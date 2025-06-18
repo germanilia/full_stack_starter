@@ -31,21 +31,132 @@ run-client:
 run:
     just run-backend & just run-client
 
-# Test commands
-test-backend:
-    cd backend && python -m pytest
+# Database cleanup and setup helpers
+cleanup-test-db:
+    #!/bin/bash
+    echo "🧹 Cleaning up test database..."
+    # Remove SQLite test database if it exists
+    if [ -f "backend/test_database.db" ]; then
+        rm -f "backend/test_database.db"
+        echo "✅ Removed SQLite test database"
+    fi
+    # For MySQL/PostgreSQL, we could add cleanup commands here
+    echo "✅ Test database cleanup completed"
 
+setup-test-db:
+    #!/bin/bash
+    echo "🔧 Setting up test database..."
+    cd backend
+
+    # Set test environment
+    export APP_ENV=test
+
+    # For SQLite (test environment), we need to create tables directly
+    # since init_db.py has issues with SQLite database creation logic
+    echo "📋 Creating database tables for test environment..."
+    python -c "import os; os.environ['APP_ENV'] = 'test'; from app.db import engine; from app.models import Base; Base.metadata.create_all(bind=engine); print('✅ Database tables created successfully')"
+
+    # Populate with test data
+    echo "📊 Populating test database with test users..."
+    APP_ENV=test python -m app.db.populate_test_db
+    echo "✅ Test database setup completed"
+    cd ..
+
+# Backend test commands
 test-backend-unit:
-    cd backend && python -m pytest tests/unit/
+    #!/bin/bash
+    echo "🧪 Running backend unit tests..."
+    just cleanup-test-db
+    just setup-test-db
+    cd backend && python -m pytest tests/unit/ -v
+    just cleanup-test-db
 
 test-backend-integration:
-    cd backend && python -m pytest tests/integration/
+    #!/bin/bash
+    echo "🧪 Running backend integration tests..."
+    just cleanup-test-db
+    just setup-test-db
+    cd backend && python -m pytest tests/integration/ -v
+    just cleanup-test-db
 
+test-backend:
+    #!/bin/bash
+    echo "🧪 Running all backend tests (unit + integration)..."
+    just cleanup-test-db
+    just setup-test-db
+    cd backend && python -m pytest tests/ -v
+    just cleanup-test-db
+
+# UI test commands
+test-ui-regression:
+    #!/bin/bash
+    echo "🧪 Running UI regression tests..."
+    just cleanup-test-db
+    just setup-test-db
+    ./run-regression-tests.sh
+    just cleanup-test-db
+
+test-ui-full:
+    #!/bin/bash
+    echo "🧪 Running full UI test suite..."
+    just cleanup-test-db
+    just setup-test-db
+    ./run-tests.sh
+    just cleanup-test-db
+
+# Combined test commands
+test-full:
+    #!/bin/bash
+    echo "🚀 Running full test suite (backend + UI full)..."
+    echo "📋 Test plan: Backend unit + integration + UI full suite"
+    just cleanup-test-db
+    just setup-test-db
+
+    echo "🔧 Running backend tests..."
+    cd backend && python -m pytest tests/ -v
+    backend_result=$?
+    cd ..
+
+    if [ $backend_result -ne 0 ]; then
+        echo "❌ Backend tests failed, skipping UI tests"
+        just cleanup-test-db
+        exit $backend_result
+    fi
+
+    echo "🌐 Running UI tests..."
+    ./run-tests.sh
+    ui_result=$?
+
+    just cleanup-test-db
+
+    if [ $ui_result -eq 0 ]; then
+        echo "🎉 All tests passed!"
+    else
+        echo "❌ UI tests failed"
+    fi
+
+    exit $ui_result
+
+# Legacy test commands (for backward compatibility)
 test-backend-coverage:
     cd backend && python -m pytest --cov=app tests/
 
 test-backend-verbose:
     cd backend && python -m pytest -v
+
+test-ui:
+    ./run-tests.sh
+
+test-ui-clean:
+    ./run-tests.sh clean
+
+populate-test-db:
+    cd backend && APP_ENV=test python -m app.db.populate_test_db
+
+# Run all tests (legacy - use test-full instead)
+test-all:
+    just test-backend
+    just test-ui
 
 # SSH key management commands
 ssh-use-germanilia:

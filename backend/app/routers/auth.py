@@ -10,7 +10,7 @@ from app.schemas.auth import (
     UserInfo, MessageResponse
 )
 from app.schemas.user import UserResponse, UserUpdate
-from app.services.cognito_service import cognito_service
+from app.core.service_factory import get_cognito_service
 from app.services.user_service import UserService
 from app.core.logging_service import get_logger
 from app.utils.username_utils import validate_and_normalize_email
@@ -49,6 +49,7 @@ async def sign_up(
             )
 
         # Sign up user with Cognito
+        cognito_service = get_cognito_service()
         cognito_response = await cognito_service.sign_up(
             email=normalized_email,
             password=request.password,
@@ -100,6 +101,7 @@ async def confirm_sign_up(request: ConfirmSignUpRequest):
     Confirm user sign up with confirmation code.
     """
     try:
+        cognito_service = get_cognito_service()
         await cognito_service.confirm_sign_up(
             email=request.email,
             confirmation_code=request.confirmation_code
@@ -136,6 +138,7 @@ async def sign_in(
     """
     try:
         # Authenticate with Cognito
+        cognito_service = get_cognito_service()
         tokens = await cognito_service.sign_in(
             email=request.email,
             password=request.password
@@ -206,6 +209,7 @@ async def refresh_token(request: RefreshTokenRequest):
     Refresh access token using refresh token.
     """
     try:
+        cognito_service = get_cognito_service()
         tokens = await cognito_service.refresh_token(
             refresh_token=request.refresh_token,
             email=request.email
