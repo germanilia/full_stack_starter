@@ -21,7 +21,7 @@ populate_db:
 
 # Run the backend server
 run-backend:
-    cd backend && uvicorn app.main:app --host 0.0.0.0 --port 9000 --reload
+    cd backend && uvicorn app.main:app --host 0.0.0.0 --port 9010 --reload
 
 # Run the frontend client
 run-client:
@@ -31,132 +31,174 @@ run-client:
 run:
     just run-backend & just run-client
 
-# Database cleanup and setup helpers
-cleanup-test-db:
-    #!/bin/bash
-    echo "🧹 Cleaning up test database..."
-    # Remove SQLite test database if it exists
-    if [ -f "backend/test_database.db" ]; then
-        rm -f "backend/test_database.db"
-        echo "✅ Removed SQLite test database"
-    fi
-    # For MySQL/PostgreSQL, we could add cleanup commands here
-    echo "✅ Test database cleanup completed"
+# Test commands
+test-backend:
+    just clean-test-db
+    cd backend && APP_ENV=test python -m pytest
+    just clean-test-db
 
-setup-test-db:
-    #!/bin/bash
-    echo "🔧 Setting up test database..."
-    cd backend
-
-    # Set test environment
-    export APP_ENV=test
-
-    # For SQLite (test environment), we need to create tables directly
-    # since init_db.py has issues with SQLite database creation logic
-    echo "📋 Creating database tables for test environment..."
-    python -c "import os; os.environ['APP_ENV'] = 'test'; from app.db import engine; from app.models import Base; Base.metadata.create_all(bind=engine); print('✅ Database tables created successfully')"
-
-    # Populate with test data
-    echo "📊 Populating test database with test users..."
-    APP_ENV=test python -m app.db.populate_test_db
-    echo "✅ Test database setup completed"
-    cd ..
-
-# Backend test commands
 test-backend-unit:
-    #!/bin/bash
-    echo "🧪 Running backend unit tests..."
-    just cleanup-test-db
-    just setup-test-db
-    cd backend && python -m pytest tests/unit/ -v
-    just cleanup-test-db
+    just clean-test-db
+    cd backend && APP_ENV=test python -m pytest tests/unit/
+    just clean-test-db
 
 test-backend-integration:
-    #!/bin/bash
-    echo "🧪 Running backend integration tests..."
-    just cleanup-test-db
-    just setup-test-db
-    cd backend && python -m pytest tests/integration/ -v
-    just cleanup-test-db
+    just clean-test-db
+    cd backend && APP_ENV=test python -m pytest tests/integration/
+    just clean-test-db
 
-test-backend:
-    #!/bin/bash
-    echo "🧪 Running all backend tests (unit + integration)..."
-    just cleanup-test-db
-    just setup-test-db
-    cd backend && python -m pytest tests/ -v
-    just cleanup-test-db
-
-# UI test commands
-test-ui-regression:
-    #!/bin/bash
-    echo "🧪 Running UI regression tests..."
-    just cleanup-test-db
-    just setup-test-db
-    ./run-regression-tests.sh
-    just cleanup-test-db
-
-test-ui-full:
-    #!/bin/bash
-    echo "🧪 Running full UI test suite..."
-    just cleanup-test-db
-    just setup-test-db
-    ./run-tests.sh
-    just cleanup-test-db
-
-# Combined test commands
-test-full:
-    #!/bin/bash
-    echo "🚀 Running full test suite (backend + UI full)..."
-    echo "📋 Test plan: Backend unit + integration + UI full suite"
-    just cleanup-test-db
-    just setup-test-db
-
-    echo "🔧 Running backend tests..."
-    cd backend && python -m pytest tests/ -v
-    backend_result=$?
-    cd ..
-
-    if [ $backend_result -ne 0 ]; then
-        echo "❌ Backend tests failed, skipping UI tests"
-        just cleanup-test-db
-        exit $backend_result
-    fi
-
-    echo "🌐 Running UI tests..."
-    ./run-tests.sh
-    ui_result=$?
-
-    just cleanup-test-db
-
-    if [ $ui_result -eq 0 ]; then
-        echo "🎉 All tests passed!"
-    else
-        echo "❌ UI tests failed"
-    fi
-
-    exit $ui_result
-
-# Legacy test commands (for backward compatibility)
 test-backend-coverage:
-    cd backend && python -m pytest --cov=app tests/
+    just clean-test-db
+    cd backend && APP_ENV=test python -m pytest --cov=app tests/
+    just clean-test-db
 
 test-backend-verbose:
-    cd backend && python -m pytest -v
+    just clean-test-db
+    cd backend && APP_ENV=test python -m pytest -v
+    just clean-test-db
 
+# Run specific backend test by grep pattern (e.g., just test-backend-grep "test_create_user")
+test-backend-grep pattern:
+    just clean-test-db
+    cd backend && APP_ENV=test python -m pytest -k "{{pattern}}" -v
+    just clean-test-db
+
+# Run specific backend test file (e.g., just test-backend-file "tests/unit/test_auth.py")
+test-backend-file file:
+    just clean-test-db
+    cd backend && APP_ENV=test python -m pytest "{{file}}" -v
+    just clean-test-db
+
+# Run backend tests by suite name (e.g., just test-backend-suite mcp, just test-backend-suite auth)
+test-backend-suite suite:
+    just clean-test-db
+    cd backend && APP_ENV=test python -m pytest -k "{{suite}}" -v
+    just clean-test-db
+
+# List available backend test suites
+list-backend-tests:
+    #!/bin/bash
+    echo "=== Backend Test Suites ==="
+    echo "Available test suites (use with 'just test-backend-suite <suite>'):"
+    echo ""
+
+    # Extract test suite names from file names
+    find backend/tests -name "test_*.py" -type f | while read file; do
+        basename "$file" | sed 's/test_//' | sed 's/.py//'
+    done | sort | while read suite; do
+        echo "  $suite"
+        # Show which files are included
+        find backend/tests -name "*$suite*.py" -type f | sed 's|backend/tests/||' | sed 's/^/    - /'
+        echo ""
+    done
+
+    echo "Examples:"
+    echo "  just test-backend-suite mcp"
+    echo "  just test-backend-suite auth"
+    echo "  just test-backend-suite user"
+
+# List available UI test suites
+list-ui-tests:
+    #!/bin/bash
+    echo "=== UI Test Suites ==="
+    echo "Available test suites (use with 'just test-ui-suite <suite>'):"
+    echo ""
+
+    # Extract test suite names from file names
+    find client/tests -name "*.spec.ts" -type f | while read file; do
+        basename "$file" | sed 's/.spec.ts//'
+    done | sort | while read suite; do
+        echo "  $suite"
+        # Show which files are included
+        find client/tests -name "*$suite*.spec.ts" -type f | sed 's|client/tests/||' | sed 's/^/    - /'
+        echo ""
+    done
+
+    echo "Examples:"
+    echo "  just test-ui-suite mcp"
+    echo "  just test-ui-suite login"
+    echo "  just test-ui-suite theme-toggle"
+
+# Clean test database files
+clean-test-db:
+    rm -f backend/test.db backend/test_auth.db backend/test_database.db backend/*.db
+
+# UI Test commands
+# Run full UI test suite (starts backend+client, populates DB, runs tests)
 test-ui:
     ./run-tests.sh
 
+# Run specific UI test by grep pattern (e.g., just test-ui-grep "validation errors")
+test-ui-grep pattern:
+    #!/bin/bash
+    ./run-tests.sh clean || true
+    ./run-partial-tests.sh grep "{{pattern}}"
+
+# Run specific UI test file (e.g., just test-ui-file "tests/mcp.spec.ts")
+test-ui-file file:
+    #!/bin/bash
+    ./run-tests.sh clean || true
+    ./run-partial-tests.sh file "{{file}}"
+
+# Run UI tests by suite name (e.g., just test-ui-suite mcp, just test-ui-suite login)
+test-ui-suite suite:
+    #!/bin/bash
+    ./run-tests.sh clean || true
+    ./run-partial-tests.sh suite "{{suite}}"
+
+# Clean up test environment only (stops servers, removes test DB, cleans up)
 test-ui-clean:
     ./run-tests.sh clean
 
+# Client Unit Test commands (Jest)
+# Run all client unit tests
+test-client-unit:
+    cd client && NODE_ENV=test npm test
+
+# Run client unit tests with coverage
+test-client-unit-coverage:
+    cd client && NODE_ENV=test npm run test:coverage
+
+# Run client unit tests in watch mode
+test-client-unit-watch:
+    cd client && NODE_ENV=test npm run test:watch
+
+# Run specific client unit test file (e.g., just test-client-unit-file "api.test.ts")
+test-client-unit-file file:
+    cd client && NODE_ENV=test npm test -- "{{file}}"
+
+# Run client unit tests matching pattern (e.g., just test-client-unit-grep "AuthContext")
+test-client-unit-grep pattern:
+    cd client && NODE_ENV=test npm test -- --testNamePattern="{{pattern}}"
+
+# List available client unit test files
+list-client-unit-tests:
+    #!/bin/bash
+    echo "=== Client Unit Test Files ==="
+    echo "Available test files (use with 'just test-client-unit-file <file>'):"
+    echo ""
+
+    find client/src -name "*.test.ts" -o -name "*.test.tsx" | while read file; do
+        basename "$file"
+    done | sort | while read test_file; do
+        echo "  $test_file"
+        # Show the full path
+        find client/src -name "$test_file" | sed 's|client/src/||' | sed 's/^/    - /'
+        echo ""
+    done
+
+    echo "Examples:"
+    echo "  just test-client-unit-file api.test.ts"
+    echo "  just test-client-unit-file AuthContext.test.tsx"
+    echo "  just test-client-unit-grep \"sign in\""
+
+# Populate test database
 populate-test-db:
     cd backend && APP_ENV=test python -m app.db.populate_test_db
 
-# Run all tests (legacy - use test-full instead)
-test-all:
-    just test-backend
-    just test-ui
+# Clean up test database
+cleanup-test-db:
+    cd backend && APP_ENV=test python -m app.db.populate_test_db --cleanup
 
 # SSH key management commands
 ssh-use-germanilia:

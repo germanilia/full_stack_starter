@@ -227,7 +227,15 @@ export const api = {
 
     getStoredUser: (): UserInfo | null => {
       const userInfo = localStorage.getItem('user_info');
-      return userInfo ? JSON.parse(userInfo) : null;
+      if (!userInfo) return null;
+
+      try {
+        return JSON.parse(userInfo);
+      } catch (error) {
+        // If JSON is invalid, clear it and return null
+        localStorage.removeItem('user_info');
+        return null;
+      }
     },
 
     clearTokens: clearAuthTokens,

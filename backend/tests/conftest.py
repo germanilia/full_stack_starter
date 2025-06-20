@@ -120,13 +120,19 @@ def mock_cognito():
 
     # Patch the SessionLocal to use the test database session
     import app.services.mock_cognito_service as mock_cognito_module
-    original_session_local = mock_cognito_module.SessionLocal
+    import app.db as db_module
+
+    original_cognito_session_local = mock_cognito_module.SessionLocal
+    original_db_session_local = db_module.SessionLocal
+
     mock_cognito_module.SessionLocal = TestingSessionLocal
+    db_module.SessionLocal = TestingSessionLocal
 
     yield mock_cognito_service
 
     # Restore original SessionLocal
-    mock_cognito_module.SessionLocal = original_session_local
+    mock_cognito_module.SessionLocal = original_cognito_session_local
+    db_module.SessionLocal = original_db_session_local
     mock_cognito_service._tokens.clear()
 
 
